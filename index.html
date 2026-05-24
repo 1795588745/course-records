@@ -189,17 +189,84 @@ body{font-family:"PingFang SC","Microsoft YaHei",sans-serif;background:#f5f4f0;c
 .rule-info .ri-day{font-weight:600;color:#BA7517}
 .rule-info .ri-time{color:#888;font-size:12px}
 .rule-info .ri-detail{font-size:11px;color:#888;margin-top:2px}
+
+/* ═══ 登录界面 ═══ */
+.login-screen{position:fixed;inset:0;background:#f5f4f0;z-index:10000;display:flex;align-items:center;justify-content:center;flex-direction:column}
+.login-card{background:#fff;border-radius:14px;padding:40px 36px;width:360px;max-width:92vw;box-shadow:0 10px 40px rgba(0,0,0,.08);text-align:center}
+.login-card .lc-icon{width:56px;height:56px;border-radius:14px;background:#EEEDFE;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;font-size:28px}
+.login-card h2{font-size:20px;font-weight:700;margin-bottom:4px;color:#2c2c2a}
+.login-card .sub{font-size:12px;color:#aaa;margin-bottom:24px}
+.login-card .fg{margin-bottom:14px;text-align:left}
+.login-card .fg label{display:block;font-size:11px;color:#5f5e5a;margin-bottom:4px;font-weight:500}
+.login-card .fg input{width:100%;padding:10px 12px;border:1px solid #d9d8d4;border-radius:7px;font-size:14px;background:#fafaf8;outline:none;font-family:inherit;color:#2c2c2a}
+.login-card .fg input:focus{border-color:#534AB7;background:#fff}
+.login-card .btn-login{width:100%;padding:11px;background:#534AB7;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;margin-top:8px;transition:opacity .15s}
+.login-card .btn-login:hover{opacity:.85}
+.login-err{color:#D9534A;font-size:12px;margin-top:8px;min-height:18px}
+.login-toggle{font-size:12px;color:#888;margin-top:14px;cursor:pointer}
+.login-toggle a{color:#534AB7;text-decoration:none}
+.login-toggle a:hover{text-decoration:underline}
+.btn-logout{background:none;border:1px solid #e8d0cf;color:#c0392b;border-radius:6px;padding:4px 10px;font-size:11px;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:4px}
+.btn-logout:hover{background:#fdf2f2}
 </style>
 </head>
 <body>
+
+<!-- ═══ 登录界面 ═══ -->
+<div class="login-screen" id="login-screen">
+  <div class="login-card">
+    <div class="lc-icon">📚</div>
+    <h2>方老师课程记录</h2>
+    <div class="sub">请登录以查看和管理课程</div>
+
+    <!-- 登录模式 -->
+    <div id="login-mode-login">
+      <div class="fg">
+        <label>账号</label>
+        <input type="text" id="login-user" placeholder="请输入账号" autocomplete="username">
+      </div>
+      <div class="fg">
+        <label>密码</label>
+        <input type="password" id="login-pass" placeholder="请输入密码" autocomplete="current-password">
+      </div>
+      <div class="login-err" id="login-err"></div>
+      <button class="btn-login" onclick="doLogin()">登 录</button>
+      <div class="login-toggle">没有账号？<a href="javascript:showRegister()">注册新账号</a></div>
+    </div>
+
+    <!-- 注册模式 -->
+    <div id="login-mode-register" style="display:none">
+      <div class="fg">
+        <label>设置账号</label>
+        <input type="text" id="reg-user" placeholder="请输入新账号" autocomplete="off">
+      </div>
+      <div class="fg">
+        <label>设置密码</label>
+        <input type="password" id="reg-pass" placeholder="至少3位" autocomplete="new-password">
+      </div>
+      <div class="fg">
+        <label>确认密码</label>
+        <input type="password" id="reg-pass2" placeholder="再次输入密码" autocomplete="new-password">
+      </div>
+      <div class="login-err" id="login-err2"></div>
+      <button class="btn-login" onclick="doRegister()">注 册</button>
+      <div class="login-toggle"><a href="javascript:showLogin()">← 返回登录</a></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ 主应用 ═══ -->
+<div id="app-root" style="display:none">
 
 <!-- ═══ 顶部栏 ═══ -->
 <div class="top-bar">
   <h1>方老师课程记录</h1>
   <div class="top-bar-right">
+    <span style="font-size:11px;color:#888;margin-right:4px" id="top-user">方老师</span>
     <button class="btn btn-amber" onclick="openRuleMgr()">📅 规则排课</button>
     <button class="btn btn-outline" onclick="openStuMgr()">👤 管理学员</button>
     <button class="btn btn-success" onclick="openExport()">⬇ 下载 Excel</button>
+    <button class="btn-logout" onclick="doLogout()" title="退出登录">⏻ 退出</button>
   </div>
 </div>
 
@@ -377,12 +444,152 @@ body{font-family:"PingFang SC","Microsoft YaHei",sans-serif;background:#f5f4f0;c
   </div>
 </div>
 
+</div><!-- /app-root -->
+
 <script>
 // ══════════════════════════════
-//  本地数据存储（localStorage）
+//  身份验证系统（多用户）
 // ══════════════════════════════
-const STORAGE_KEY_RECS = "_klrecs";
-const STORAGE_KEY_RULES = "_klrules";
+const DEFAULT_ACCOUNT = { name:"方老师", passHash:"724322c9ded5aa92d7f3ec440896f9ba7a918b1b4a98e0dc8fd10b921f63955a" };
+
+function loadAccounts(){
+  let accts;
+  try { accts = JSON.parse(localStorage.getItem("_accounts")||"[]"); } catch(e){ accts = []; }
+  if(!Array.isArray(accts) || accts.length === 0){
+    accts = [DEFAULT_ACCOUNT];
+    saveAccounts(accts);
+  }
+  return accts;
+}
+
+function saveAccounts(accts){
+  localStorage.setItem("_accounts", JSON.stringify(accts));
+}
+
+function findAccount(name){
+  return loadAccounts().find(a => a.name === name);
+}
+
+function getCurrentUser(){
+  return localStorage.getItem("_auth_user") || "";
+}
+
+async function sha256(str){
+  const enc = new TextEncoder();
+  const data = enc.encode(str);
+  const hash = await crypto.subtle.digest("SHA-256", data);
+  return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2,"0")).join("");
+}
+
+function isLoggedIn(){
+  const u = getCurrentUser();
+  if(!u) return false;
+  return !!findAccount(u);
+}
+
+// 迁移旧全局键数据到当前用户键下
+function migrateOldData(){
+  // 旧全局键 → 新按用户键
+  const map = [
+    ["_klrecs", STORAGE_KEY_RECS],
+    ["_klrules", STORAGE_KEY_RULES],
+    ["_kldetached", DETACHED_KEY],
+    ["student_list", STUDENT_LIST_KEY],
+    ["salary_history", SALARY_KEY],
+    ["salary_config", SALARY_CFG_KEY]
+  ];
+  let migrated = false;
+  map.forEach(([oldKey, newKey]) => {
+    const oldVal = localStorage.getItem(oldKey);
+    if(oldVal && !localStorage.getItem(newKey)){
+      localStorage.setItem(newKey, oldVal);
+      migrated = true;
+    }
+  });
+  if(migrated) console.log("📦 已将旧数据迁移到用户「"+getCurrentUser()+"」名下");
+}
+
+function showApp(){
+  document.getElementById("login-screen").style.display = "none";
+  document.getElementById("app-root").style.display = "";
+  document.getElementById("top-user").textContent = getCurrentUser();
+  initApp();
+}
+
+async function doLogin(){
+  const user = document.getElementById("login-user").value.trim();
+  const pass = document.getElementById("login-pass").value;
+  const errEl = document.getElementById("login-err");
+  if(!user){ errEl.textContent = "请输入账号"; return; }
+  if(!pass){ errEl.textContent = "请输入密码"; return; }
+  const acct = findAccount(user);
+  if(!acct){ errEl.textContent = "账号不存在，请先注册"; return; }
+  const hash = await sha256(pass);
+  if(hash !== acct.passHash){ errEl.textContent = "密码错误，请重试"; return; }
+  localStorage.setItem("_auth_user", user);
+  setUserKeys(user);
+  migrateOldData();
+  showApp();
+}
+
+function doLogout(){
+  if(!confirm("确认退出登录？\n所有数据均已保存在本地，下次登录后仍可查看。")) return;
+  localStorage.removeItem("_auth_user");
+  location.reload();
+}
+
+// ── 注册 ──
+function showRegister(){
+  document.getElementById("login-mode-login").style.display = "none";
+  document.getElementById("login-mode-register").style.display = "";
+  document.getElementById("login-err").textContent = "";
+  document.getElementById("reg-user").focus();
+}
+
+function showLogin(){
+  document.getElementById("login-mode-register").style.display = "none";
+  document.getElementById("login-mode-login").style.display = "";
+  document.getElementById("login-err").textContent = "";
+  document.getElementById("login-user").focus();
+}
+
+async function doRegister(){
+  const user = document.getElementById("reg-user").value.trim();
+  const pass = document.getElementById("reg-pass").value;
+  const pass2 = document.getElementById("reg-pass2").value;
+  const errEl = document.getElementById("login-err2");
+
+  if(!user){ errEl.textContent = "请输入账号"; return; }
+  if(user.length < 1 || user.length > 20){ errEl.textContent = "账号长度需在1-20个字符"; return; }
+  if(/[<>"'&/\\]/.test(user)){ errEl.textContent = "账号不能包含特殊字符"; return; }
+  if(findAccount(user)){ errEl.textContent = "该账号已存在，请直接登录"; return; }
+  if(!pass || pass.length < 3){ errEl.textContent = "密码至少3位"; return; }
+  if(pass !== pass2){ errEl.textContent = "两次密码不一致"; return; }
+
+  const hash = await sha256(pass);
+  const accts = loadAccounts();
+  accts.push({ name: user, passHash: hash });
+  saveAccounts(accts);
+
+  localStorage.setItem("_auth_user", user);
+  setUserKeys(user);
+  showApp();
+}
+
+// ══════════════════════════════
+//  本地数据存储（localStorage）—— 按用户隔离键名
+// ══════════════════════════════
+let STORAGE_KEY_RECS, STORAGE_KEY_RULES, DETACHED_KEY, STUDENT_LIST_KEY, SALARY_KEY, SALARY_CFG_KEY;
+
+function setUserKeys(username){
+  const p = "u_" + username + "_";
+  STORAGE_KEY_RECS = p + "recs";
+  STORAGE_KEY_RULES = p + "rules";
+  DETACHED_KEY = p + "detached";
+  STUDENT_LIST_KEY = p + "students";
+  SALARY_KEY = p + "salary";
+  SALARY_CFG_KEY = p + "salary_cfg";
+}
 
 function loadRecs(){
   try { RECS = JSON.parse(localStorage.getItem(STORAGE_KEY_RECS)||"[]"); } catch(e){ RECS=[]; }
@@ -414,8 +621,8 @@ function recoverData(){
   for(let i = 0; i < localStorage.length; i++){
     const key = localStorage.key(i);
     if(!key || key === STORAGE_KEY_RECS || key === STORAGE_KEY_RULES) continue;
-    if(key.startsWith("_kldetached") || key.startsWith("student_list") ||
-       key.startsWith("salary") || key.startsWith("sb_") || key.startsWith("auth_")) continue;
+    if(key.startsWith(DETACHED_KEY) || key.startsWith(STUDENT_LIST_KEY) ||
+       key.startsWith(SALARY_KEY) || key.startsWith("sb_") || key.startsWith("auth_")) continue;
 
     try {
       const val = JSON.parse(localStorage.getItem(key));
@@ -458,19 +665,24 @@ function initSupabase(){
   catch(e){ console.warn("Supabase 初始化失败，仅本地模式"); cloudReady = false; }
 }
 
-async function fetchFromCloud(){
+async function fetchFromCloudRaw(){
   if(!cloudReady) return null;
   try {
     const {data,error} = await sb.from("app_state").select("data").eq("id",1).single();
-    if(error || !data){ console.warn("云端暂无数据"); return null; }
+    if(error || !data) return null;
     return data.data;
-  }catch(e){ console.warn("云端读取失败:",e.message); return null; }
+  }catch(e){ return null; }
 }
 
 async function pushToCloud(){
   if(!cloudReady) return;
   try {
-    const payload = {
+    const user = getCurrentUser();
+    if(!user) return;
+    // 先拉取云端全量数据，只更新当前用户部分
+    const cloud = await fetchFromCloudRaw();
+    const allData = (cloud && typeof cloud === "object" && !Array.isArray(cloud)) ? cloud : {};
+    allData[user] = {
       recs: RECS,
       rules: RULES,
       detached: _detached,
@@ -478,8 +690,8 @@ async function pushToCloud(){
       salary_history: getSalaryHistory(),
       salary_config: JSON.parse(localStorage.getItem(SALARY_CFG_KEY)||"{}")
     };
-    await sb.from("app_state").upsert({id:1, data:payload, updated_at:new Date().toISOString()});
-    console.log("☁️ 已同步到云端");
+    await sb.from("app_state").upsert({id:1, data:allData, updated_at:new Date().toISOString()});
+    console.log("☁️ 已同步「"+user+"」到云端");
   }catch(e){ console.warn("云端保存失败:",e.message); }
 }
 
@@ -490,23 +702,26 @@ function scheduleCloudSync(){
   _cloudTimer = setTimeout(pushToCloud, 800);
 }
 
-// 从云端加载所有数据到内存 + localStorage
+// 从云端加载当前用户数据到内存 + localStorage
 async function loadFromCloud(){
   if(!cloudReady) return false;
   _loading = true;
-  const cloud = await fetchFromCloud();
-  if(!cloud){ _loading = false; return false; }
+  const user = getCurrentUser();
+  if(!user){ _loading = false; return false; }
+  const cloud = await fetchFromCloudRaw();
+  if(!cloud || !cloud[user]){ _loading = false; return false; }
+  const ud = cloud[user];
 
   // 合并到内存（不触发云端回推）
   let hasData = false;
-  if(cloud.recs && Array.isArray(cloud.recs)){ RECS = cloud.recs; localStorage.setItem(STORAGE_KEY_RECS,JSON.stringify(RECS)); hasData = true; }
-  if(cloud.rules && Array.isArray(cloud.rules)){ RULES = cloud.rules; localStorage.setItem(STORAGE_KEY_RULES,JSON.stringify(RULES)); hasData = true; }
-  if(cloud.detached && Array.isArray(cloud.detached)){ _detached = cloud.detached; localStorage.setItem("_kldetached",JSON.stringify(_detached)); }
-  if(cloud.student_list && Array.isArray(cloud.student_list)){ STUS = cloud.student_list; localStorage.setItem("student_list",JSON.stringify(STUS)); }
-  if(cloud.salary_history && typeof cloud.salary_history==="object"){ localStorage.setItem(SALARY_KEY,JSON.stringify(cloud.salary_history)); }
-  if(cloud.salary_config && typeof cloud.salary_config==="object"){ localStorage.setItem(SALARY_CFG_KEY,JSON.stringify(cloud.salary_config)); }
+  if(ud.recs && Array.isArray(ud.recs)){ RECS = ud.recs; localStorage.setItem(STORAGE_KEY_RECS,JSON.stringify(RECS)); hasData = true; }
+  if(ud.rules && Array.isArray(ud.rules)){ RULES = ud.rules; localStorage.setItem(STORAGE_KEY_RULES,JSON.stringify(RULES)); }
+  if(ud.detached && Array.isArray(ud.detached)){ _detached = ud.detached; localStorage.setItem(DETACHED_KEY,JSON.stringify(_detached)); }
+  if(ud.student_list && Array.isArray(ud.student_list)){ STUS = ud.student_list; localStorage.setItem(STUDENT_LIST_KEY,JSON.stringify(STUS)); }
+  if(ud.salary_history && typeof ud.salary_history==="object"){ localStorage.setItem(SALARY_KEY,JSON.stringify(ud.salary_history)); }
+  if(ud.salary_config && typeof ud.salary_config==="object"){ localStorage.setItem(SALARY_CFG_KEY,JSON.stringify(ud.salary_config)); }
   _loading = false;
-  if(hasData) console.log("☁️ 从云端加载了数据");
+  if(hasData) console.log("☁️ 从云端加载了「"+user+"」的数据");
   return hasData;
 }
 
@@ -542,10 +757,10 @@ let RULES = [];
 let _detached = [];
 
 function loadDetached(){
-  try { _detached = JSON.parse(localStorage.getItem("_kldetached")||"[]"); } catch(e){ _detached=[]; }
+  try { _detached = JSON.parse(localStorage.getItem(DETACHED_KEY)||"[]"); } catch(e){ _detached=[]; }
 }
 function saveDetached(){
-  localStorage.setItem("_kldetached", JSON.stringify(_detached));
+  localStorage.setItem(DETACHED_KEY, JSON.stringify(_detached));
   scheduleCloudSync();
 }
 
@@ -987,8 +1202,6 @@ async function delR(id){
 // ══════════════════════════════
 //  工资计算
 // ══════════════════════════════
-const SALARY_KEY = "salary_history";
-const SALARY_CFG_KEY = "salary_config";
 
 function showToast(msg){
   let t=document.getElementById("toast-msg");
@@ -1249,18 +1462,18 @@ function renderStuList(){
   if(!STUS.length){box.innerHTML='<div style="color:#aaa;text-align:center;padding:20px;font-size:13px">暂无学员</div>';return;}
   box.innerHTML=STUS.map((s,i)=>`<div class="smrow"><span class="smname">${s.name}</span><span class="gtag ${s.grade==="senior"?"bs":"bj"}" onclick="toggleGrade(${i})" title="点击切换年级">${s.grade==="senior"?"高中":"初中"}</span><button class="btn-danger-sm" onclick="removeStu(${i})">删除</button></div>`).join("");
 }
-function toggleGrade(i){ STUS[i].grade=STUS[i].grade==="senior"?"junior":"senior"; localStorage.setItem("student_list",JSON.stringify(STUS)); scheduleCloudSync(); renderStuList(); refresh(); }
+function toggleGrade(i){ STUS[i].grade=STUS[i].grade==="senior"?"junior":"senior"; localStorage.setItem(STUDENT_LIST_KEY,JSON.stringify(STUS)); scheduleCloudSync(); renderStuList(); refresh(); }
 function addStu(){
   const nm=document.getElementById("new-name").value.trim();
   const gr=document.getElementById("new-grade").value;
   if(!nm){document.getElementById("new-name").focus();return;}
   if(STUS.find(s=>s.name===nm)){alert(`「${nm}」已存在`);return;}
-  STUS.push({name:nm,grade:gr}); localStorage.setItem("student_list",JSON.stringify(STUS)); scheduleCloudSync(); renderStuList();
+  STUS.push({name:nm,grade:gr}); localStorage.setItem(STUDENT_LIST_KEY,JSON.stringify(STUS)); scheduleCloudSync(); renderStuList();
   document.getElementById("new-name").value=""; document.getElementById("new-name").focus();
 }
 function removeStu(i){
   if(!confirm(`删除学员「${STUS[i].name}」？`)) return;
-  STUS.splice(i,1); localStorage.setItem("student_list",JSON.stringify(STUS)); scheduleCloudSync(); renderStuList(); refresh();
+  STUS.splice(i,1); localStorage.setItem(STUDENT_LIST_KEY,JSON.stringify(STUS)); scheduleCloudSync(); renderStuList(); refresh();
 }
 
 // ══════════════════════════════
@@ -1390,7 +1603,7 @@ function initSelects(){
 
 async function initApp(){
   initSupabase();
-  STUS = JSON.parse(localStorage.getItem("student_list") || JSON.stringify(DEFAULT_STUS));
+  STUS = JSON.parse(localStorage.getItem(STUDENT_LIST_KEY) || JSON.stringify(DEFAULT_STUS));
   loadRecs(); loadRules(); loadDetached();
   recoverData();  // 自动扫描旧键名恢复数据
 
@@ -1416,7 +1629,23 @@ document.addEventListener("DOMContentLoaded",()=>{
   document.getElementById("new-name").addEventListener("keydown",e=>{ if(e.key==="Enter") addStu(); });
   document.getElementById("ey").addEventListener("change",updateExpInfo);
   document.getElementById("em").addEventListener("change",updateExpInfo);
-  initApp();
+
+  // 登录界面：回车触发登录/注册
+  document.getElementById("login-pass").addEventListener("keydown",e=>{ if(e.key==="Enter") doLogin(); });
+  document.getElementById("login-user").addEventListener("keydown",e=>{ if(e.key==="Enter") doLogin(); });
+  document.getElementById("reg-pass2").addEventListener("keydown",e=>{ if(e.key==="Enter") doRegister(); });
+  document.getElementById("reg-pass").addEventListener("keydown",e=>{ if(e.key==="Enter") document.getElementById("reg-pass2").focus(); });
+  document.getElementById("reg-user").addEventListener("keydown",e=>{ if(e.key==="Enter") document.getElementById("reg-pass").focus(); });
+
+  // 检查是否已登录
+  if(isLoggedIn()){
+    setUserKeys(getCurrentUser());
+    migrateOldData();
+    showApp();
+  } else {
+    document.getElementById("login-screen").style.display = "";
+    document.getElementById("login-user").focus();
+  }
 });
 </script>
 </body>
