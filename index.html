@@ -625,6 +625,8 @@ function recoverData(){
     if(!key || key === STORAGE_KEY_RECS || key === STORAGE_KEY_RULES) continue;
     if(key.startsWith(DETACHED_KEY) || key.startsWith(STUDENT_LIST_KEY) ||
        key.startsWith(SALARY_KEY) || key.startsWith("sb_") || key.startsWith("auth_")) continue;
+    // 跳过其他用户的隔离数据（u_ 前缀的键），避免数据串号
+    if(key.startsWith("u_")) continue;
 
     try {
       const val = JSON.parse(localStorage.getItem(key));
