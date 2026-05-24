@@ -498,15 +498,16 @@ async function loadFromCloud(){
   if(!cloud){ _loading = false; return false; }
 
   // 合并到内存（不触发云端回推）
-  if(cloud.recs && Array.isArray(cloud.recs)){ RECS = cloud.recs; localStorage.setItem(STORAGE_KEY_RECS,JSON.stringify(RECS)); }
-  if(cloud.rules && Array.isArray(cloud.rules)){ RULES = cloud.rules; localStorage.setItem(STORAGE_KEY_RULES,JSON.stringify(RULES)); }
+  let hasData = false;
+  if(cloud.recs && Array.isArray(cloud.recs)){ RECS = cloud.recs; localStorage.setItem(STORAGE_KEY_RECS,JSON.stringify(RECS)); hasData = true; }
+  if(cloud.rules && Array.isArray(cloud.rules)){ RULES = cloud.rules; localStorage.setItem(STORAGE_KEY_RULES,JSON.stringify(RULES)); hasData = true; }
   if(cloud.detached && Array.isArray(cloud.detached)){ _detached = cloud.detached; localStorage.setItem("_kldetached",JSON.stringify(_detached)); }
   if(cloud.student_list && Array.isArray(cloud.student_list)){ STUS = cloud.student_list; localStorage.setItem("student_list",JSON.stringify(STUS)); }
   if(cloud.salary_history && typeof cloud.salary_history==="object"){ localStorage.setItem(SALARY_KEY,JSON.stringify(cloud.salary_history)); }
   if(cloud.salary_config && typeof cloud.salary_config==="object"){ localStorage.setItem(SALARY_CFG_KEY,JSON.stringify(cloud.salary_config)); }
   _loading = false;
-  console.log("☁️ 从云端加载了数据");
-  return true;
+  if(hasData) console.log("☁️ 从云端加载了数据");
+  return hasData;
 }
 
 // ══════════════════════════════
