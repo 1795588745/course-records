@@ -260,9 +260,11 @@ body{font-family:"PingFang SC","Microsoft YaHei",sans-serif;background:#f5f4f0;c
 
 <!-- ═══ 顶部栏 ═══ -->
 <div class="top-bar">
-  <h1>方老师课程记录</h1>
+  <div style="display:flex;align-items:center;gap:10px">
+    <h1>课程记录</h1>
+    <span style="font-size:11px;color:#888;background:#f0efe9;padding:2px 8px;border-radius:4px" id="top-user">方老师</span>
+  </div>
   <div class="top-bar-right">
-    <span style="font-size:11px;color:#888;margin-right:4px" id="top-user">方老师</span>
     <button class="btn btn-amber" onclick="openRuleMgr()">📅 规则排课</button>
     <button class="btn btn-outline" onclick="openStuMgr()">👤 管理学员</button>
     <button class="btn btn-success" onclick="openExport()">⬇ 下载 Excel</button>
