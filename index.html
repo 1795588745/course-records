@@ -6,6 +6,7 @@
 <title>方老师课程记录</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23534AB7'/%3E%3Crect x='12' y='12' width='40' height='44' rx='6' fill='%23fff'/%3E%3Crect x='18' y='20' width='14' height='2' rx='1' fill='%23998FE0'/%3E%3Crect x='18' y='26' width='14' height='2' rx='1' fill='%23998FE0'/%3E%3Crect x='18' y='32' width='10' height='2' rx='1' fill='%23998FE0'/%3E%3Crect x='36' y='14' width='16' height='16' rx='4' fill='%23F0AD4E'/%3E%3Ctext x='44' y='26' font-family='Arial,sans-serif' font-size='13' font-weight='bold' fill='%23fff' text-anchor='middle'%3E课%3C/text%3E%3C/svg%3E">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:"PingFang SC","Microsoft YaHei",sans-serif;background:#f5f4f0;color:#2c2c2a;font-size:14px}
@@ -388,12 +389,14 @@ function loadRecs(){
 }
 function saveRecs(){
   localStorage.setItem(STORAGE_KEY_RECS, JSON.stringify(RECS));
+  scheduleCloudSync();
 }
 function loadRules(){
   try { RULES = JSON.parse(localStorage.getItem(STORAGE_KEY_RULES)||"[]"); } catch(e){ RULES=[]; }
 }
 function saveRules(){
   localStorage.setItem(STORAGE_KEY_RULES, JSON.stringify(RULES));
+  scheduleCloudSync();
 }
 
 // ── 数据恢复：扫描旧键名迁移数据 ──
@@ -444,6 +447,69 @@ function recoverData(){
 }
 
 // ══════════════════════════════
+//  云端数据（Supabase）
+// ══════════════════════════════
+const SB_URL = "https://fqmtuwboyxzyzxlniizb.supabase.co";
+const SB_KEY = "sb_publishable_J4yYYqcVVlch8JHpeUmW0g_qMDNtDYr";
+let sb = null, cloudReady = false;
+
+function initSupabase(){
+  try { sb = window.supabase.createClient(SB_URL, SB_KEY); cloudReady = true; }
+  catch(e){ console.warn("Supabase 初始化失败，仅本地模式"); cloudReady = false; }
+}
+
+async function fetchFromCloud(){
+  if(!cloudReady) return null;
+  try {
+    const {data,error} = await sb.from("app_state").select("data").eq("id",1).single();
+    if(error || !data){ console.warn("云端暂无数据"); return null; }
+    return data.data;
+  }catch(e){ console.warn("云端读取失败:",e.message); return null; }
+}
+
+async function pushToCloud(){
+  if(!cloudReady) return;
+  try {
+    const payload = {
+      recs: RECS,
+      rules: RULES,
+      detached: _detached,
+      student_list: STUS,
+      salary_history: getSalaryHistory(),
+      salary_config: JSON.parse(localStorage.getItem(SALARY_CFG_KEY)||"{}")
+    };
+    await sb.from("app_state").upsert({id:1, data:payload, updated_at:new Date().toISOString()});
+    console.log("☁️ 已同步到云端");
+  }catch(e){ console.warn("云端保存失败:",e.message); }
+}
+
+let _cloudTimer = null, _loading = false;
+function scheduleCloudSync(){
+  if(_loading) return;
+  clearTimeout(_cloudTimer);
+  _cloudTimer = setTimeout(pushToCloud, 800);
+}
+
+// 从云端加载所有数据到内存 + localStorage
+async function loadFromCloud(){
+  if(!cloudReady) return false;
+  _loading = true;
+  const cloud = await fetchFromCloud();
+  if(!cloud){ _loading = false; return false; }
+
+  // 合并到内存（不触发云端回推）
+  if(cloud.recs && Array.isArray(cloud.recs)){ RECS = cloud.recs; localStorage.setItem(STORAGE_KEY_RECS,JSON.stringify(RECS)); }
+  if(cloud.rules && Array.isArray(cloud.rules)){ RULES = cloud.rules; localStorage.setItem(STORAGE_KEY_RULES,JSON.stringify(RULES)); }
+  if(cloud.detached && Array.isArray(cloud.detached)){ _detached = cloud.detached; localStorage.setItem("_kldetached",JSON.stringify(_detached)); }
+  if(cloud.student_list && Array.isArray(cloud.student_list)){ STUS = cloud.student_list; localStorage.setItem("student_list",JSON.stringify(STUS)); }
+  if(cloud.salary_history && typeof cloud.salary_history==="object"){ localStorage.setItem(SALARY_KEY,JSON.stringify(cloud.salary_history)); }
+  if(cloud.salary_config && typeof cloud.salary_config==="object"){ localStorage.setItem(SALARY_CFG_KEY,JSON.stringify(cloud.salary_config)); }
+  _loading = false;
+  console.log("☁️ 从云端加载了数据");
+  return true;
+}
+
+// ══════════════════════════════
 //  常量
 // ══════════════════════════════
 const HOUR_START = 8, HOUR_END = 22;
@@ -479,6 +545,7 @@ function loadDetached(){
 }
 function saveDetached(){
   localStorage.setItem("_kldetached", JSON.stringify(_detached));
+  scheduleCloudSync();
 }
 
 // ══════════════════════════════
@@ -940,11 +1007,12 @@ function loadSalaryConfig(){
 function saveSalaryConfig(){
   const c={base:+document.getElementById("sp-base").value,deduct:+document.getElementById("sp-deduct").value,insurance:+document.getElementById("sp-insurance").value,threshold:+document.getElementById("sp-threshold").value||5000};
   localStorage.setItem(SALARY_CFG_KEY,JSON.stringify(c));
+  scheduleCloudSync();
   recalcSalary(); showToast("工资设置已保存");
 }
 
 function getSalaryHistory(){ return JSON.parse(localStorage.getItem(SALARY_KEY)||"{}"); }
-function saveSalaryHistory(h){ localStorage.setItem(SALARY_KEY,JSON.stringify(h)); }
+function saveSalaryHistory(h){ localStorage.setItem(SALARY_KEY,JSON.stringify(h)); scheduleCloudSync(); }
 
 function getMonthGross(yr,mo){
   generateFromRules();
@@ -1180,18 +1248,18 @@ function renderStuList(){
   if(!STUS.length){box.innerHTML='<div style="color:#aaa;text-align:center;padding:20px;font-size:13px">暂无学员</div>';return;}
   box.innerHTML=STUS.map((s,i)=>`<div class="smrow"><span class="smname">${s.name}</span><span class="gtag ${s.grade==="senior"?"bs":"bj"}" onclick="toggleGrade(${i})" title="点击切换年级">${s.grade==="senior"?"高中":"初中"}</span><button class="btn-danger-sm" onclick="removeStu(${i})">删除</button></div>`).join("");
 }
-function toggleGrade(i){ STUS[i].grade=STUS[i].grade==="senior"?"junior":"senior"; localStorage.setItem("student_list",JSON.stringify(STUS)); renderStuList(); refresh(); }
+function toggleGrade(i){ STUS[i].grade=STUS[i].grade==="senior"?"junior":"senior"; localStorage.setItem("student_list",JSON.stringify(STUS)); scheduleCloudSync(); renderStuList(); refresh(); }
 function addStu(){
   const nm=document.getElementById("new-name").value.trim();
   const gr=document.getElementById("new-grade").value;
   if(!nm){document.getElementById("new-name").focus();return;}
   if(STUS.find(s=>s.name===nm)){alert(`「${nm}」已存在`);return;}
-  STUS.push({name:nm,grade:gr}); localStorage.setItem("student_list",JSON.stringify(STUS)); renderStuList();
+  STUS.push({name:nm,grade:gr}); localStorage.setItem("student_list",JSON.stringify(STUS)); scheduleCloudSync(); renderStuList();
   document.getElementById("new-name").value=""; document.getElementById("new-name").focus();
 }
 function removeStu(i){
   if(!confirm(`删除学员「${STUS[i].name}」？`)) return;
-  STUS.splice(i,1); localStorage.setItem("student_list",JSON.stringify(STUS)); renderStuList(); refresh();
+  STUS.splice(i,1); localStorage.setItem("student_list",JSON.stringify(STUS)); scheduleCloudSync(); renderStuList(); refresh();
 }
 
 // ══════════════════════════════
@@ -1319,10 +1387,15 @@ function initSelects(){
   document.getElementById("em").value=now.getMonth()+1;
 }
 
-function initApp(){
+async function initApp(){
+  initSupabase();
   STUS = JSON.parse(localStorage.getItem("student_list") || JSON.stringify(DEFAULT_STUS));
   loadRecs(); loadRules(); loadDetached();
   recoverData();  // 自动扫描旧键名恢复数据
+
+  // 云端优先：有网就从云端拉数据覆盖本地
+  const cloudLoaded = await loadFromCloud();
+
   initSelects();
   renderCal();
   setTimeout(()=>{
@@ -1331,6 +1404,11 @@ function initApp(){
     archiveLastMonth();
     recalcSalary();
   }, 300);
+
+  // 初次从本地同步到云端（云端为空时）
+  if(cloudReady && !cloudLoaded && (RECS.length > 0 || RULES.length > 0)){
+    setTimeout(pushToCloud, 1500);
+  }
 }
 
 document.addEventListener("DOMContentLoaded",()=>{
