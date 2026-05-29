@@ -19,7 +19,8 @@ body{font-family:"PingFang SC","Microsoft YaHei",sans-serif;background:#f5f4f0;c
 /* ── 工具栏 ── */
 .toolbar{background:#fff;border-bottom:1px solid #e8e7e3;padding:8px 20px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .week-nav{display:flex;align-items:center;gap:6px}
-.week-label{font-size:13px;font-weight:500;min-width:200px;text-align:center;color:#2c2c2a}
+.week-label{font-size:13px;font-weight:500;min-width:200px;text-align:center;color:#2c2c2a;cursor:pointer;border-radius:6px;padding:2px 8px;user-select:none}
+.week-label:hover{background:#f5f4f0}
 .nav-btn{width:26px;height:26px;border-radius:6px;border:1px solid #d9d8d4;background:#fff;cursor:pointer;font-size:15px;color:#666;display:flex;align-items:center;justify-content:center}
 .nav-btn:hover{background:#f5f4f0}
 .today-btn{padding:4px 10px;border-radius:6px;border:1px solid #d9d8d4;background:#fff;cursor:pointer;font-size:12px;color:#555;font-family:inherit}
@@ -300,7 +301,8 @@ body{font-family:"PingFang SC","Microsoft YaHei",sans-serif;background:#f5f4f0;c
 <div class="toolbar">
   <div class="week-nav">
     <button class="nav-btn" onclick="shiftWeek(-1)">‹</button>
-    <span class="week-label" id="week-label">—</span>
+    <span class="week-label" id="week-label" onclick="openDatePicker()" title="点击选择日期">—</span>
+    <input type="date" id="date-picker" style="position:absolute;width:0;height:0;opacity:0;pointer-events:none" onchange="onDatePickerChange(this.value)">
     <button class="nav-btn" onclick="shiftWeek(1)">›</button>
     <button class="today-btn" onclick="goToday()">今天</button>
   </div>
@@ -899,6 +901,8 @@ function getMonday(d){
 }
 function shiftWeek(n){ weekStart.setDate(weekStart.getDate()+n*7); refresh(); }
 function goToday(){ weekStart=getMonday(new Date()); refresh(); }
+function openDatePicker(){ const dp=document.getElementById("date-picker"); dp.style.pointerEvents="auto"; dp.showPicker?dp.showPicker():dp.click(); }
+function onDatePickerChange(val){ if(!val) return; weekStart=getMonday(new Date(val+"T00:00:00")); document.getElementById("date-picker").style.pointerEvents="none"; refresh(); }
 
 // ══════════════════════════════
 //  规则生成课程（客户端）
