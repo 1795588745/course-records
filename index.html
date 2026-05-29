@@ -208,6 +208,30 @@ body{font-family:"PingFang SC","Microsoft YaHei",sans-serif;background:#f5f4f0;c
 .login-toggle a:hover{text-decoration:underline}
 .btn-logout{background:none;border:1px solid #e8d0cf;color:#c0392b;border-radius:6px;padding:4px 10px;font-size:11px;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:4px}
 .btn-logout:hover{background:#fdf2f2}
+
+/* ── 加班/调休面板 ── */
+.ot-panel{background:#fff;border:1px solid #e8e7e3;border-radius:12px;margin:16px 20px 0;padding:16px 20px}
+.ot-title{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.ot-title span{font-size:13px;font-weight:600;color:#2c2c2a}
+.ot-title-btns{display:flex;gap:6px}
+.ot-stats{display:flex;gap:10px;margin-bottom:14px}
+.ot-stat{flex:1;background:#f8f7f3;border-radius:8px;padding:10px 14px;text-align:center}
+.ot-stat .ot-num{font-size:20px;font-weight:700}
+.ot-stat .ot-lbl{font-size:11px;color:#888;margin-top:2px}
+.ot-stat.c-orange .ot-num{color:#BA7517}
+.ot-stat.c-green .ot-num{color:#0F6E56}
+.ot-stat.c-purple .ot-num{color:#534AB7}
+.ot-tbl-wrap{margin-top:4px}
+.ot-tbl-tabs{display:flex;gap:2px;background:#f0efe9;border-radius:7px;padding:2px;width:fit-content;margin-bottom:10px}
+.ot-tbl-tab{padding:3px 12px;border-radius:5px;font-size:11px;font-weight:500;cursor:pointer;border:none;background:transparent;color:#888780;font-family:inherit}
+.ot-tbl-tab.active{background:#fff;color:#2c2c2a;box-shadow:0 1px 3px rgba(0,0,0,.1)}
+.ot-tbl{width:100%;border-collapse:collapse;font-size:12px}
+.ot-tbl th{text-align:left;padding:6px 10px;color:#888;font-weight:500;border-bottom:1px solid #f0efe9;font-size:11px}
+.ot-tbl td{padding:7px 10px;border-bottom:1px solid #f8f7f3;color:#2c2c2a}
+.ot-tbl tr:last-child td{border-bottom:none}
+.ot-tbl .ot-h{font-weight:600;color:#BA7517}
+.ot-tbl .ot-h-used{font-weight:600;color:#0F6E56}
+.ot-empty{color:#aaa;font-size:12px;padding:12px 0;text-align:center}
 </style>
 </head>
 <body>
@@ -324,6 +348,41 @@ body{font-family:"PingFang SC","Microsoft YaHei",sans-serif;background:#f5f4f0;c
     </div>
     <div class="sp-history"><div class="sp-history-title"><span>本年工资记录</span><button class="btn-hist-add" onclick="openSalaryEdit(null)">+ 手动添加</button></div><div id="sp-hist-box"><div class="sp-hist-empty">暂无历史记录</div></div></div>
   </div>
+
+  <!-- ═══ 加班/调休面板 ═══ -->
+  <div class="ot-panel" id="ot-panel">
+    <div class="ot-title">
+      <span>⏰ 加班 &amp; 调休</span>
+      <div class="ot-title-btns">
+        <button class="btn btn-ghost" style="font-size:11px;padding:4px 10px" onclick="openOtAdd()">＋ 加班记录</button>
+        <button class="btn btn-outline" style="font-size:11px;padding:4px 10px" onclick="openTxAdd()">－ 使用调休</button>
+      </div>
+    </div>
+    <div class="ot-stats">
+      <div class="ot-stat c-orange"><div class="ot-num" id="ot-total">0</div><div class="ot-lbl">累计加班（小时）</div></div>
+      <div class="ot-stat c-green"><div class="ot-num" id="ot-used">0</div><div class="ot-lbl">已使用调休（小时）</div></div>
+      <div class="ot-stat c-purple"><div class="ot-num" id="ot-avail">0</div><div class="ot-lbl">可用调休（小时）</div></div>
+    </div>
+    <div class="ot-tbl-wrap">
+      <div class="ot-tbl-tabs">
+        <button class="ot-tbl-tab active" id="ot-tab-ot" onclick="switchOtTab('ot')">加班明细</button>
+        <button class="ot-tbl-tab" id="ot-tab-tx" onclick="switchOtTab('tx')">调休明细</button>
+      </div>
+      <div id="ot-tab-content-ot">
+        <table class="ot-tbl">
+          <thead><tr><th>日期</th><th>加班时长</th><th>备注</th><th style="width:60px"></th></tr></thead>
+          <tbody id="ot-list-body"><tr><td colspan="4" class="ot-empty">暂无加班记录</td></tr></tbody>
+        </table>
+      </div>
+      <div id="ot-tab-content-tx" style="display:none">
+        <table class="ot-tbl">
+          <thead><tr><th>日期</th><th>使用时长</th><th>备注</th><th style="width:60px"></th></tr></thead>
+          <tbody id="tx-list-body"><tr><td colspan="4" class="ot-empty">暂无调休记录</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
   <div class="month-sel">
     <span style="font-size:12px;color:#5f5e5a">筛选：</span>
     <select id="ly" onchange="renderList()"></select>年
@@ -442,6 +501,39 @@ body{font-family:"PingFang SC","Microsoft YaHei",sans-serif;background:#f5f4f0;c
     <div class="mfoot">
       <button class="btn btn-ghost" onclick="closeSalaryEdit()">取消</button>
       <button class="btn btn-primary" onclick="saveSalaryEdit()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ 加班记录 模态框 ═══ -->
+<div class="modal-bg" id="ot-add-modal" onclick="bgClose('ot-add-modal')">
+  <div class="modal xs" onclick="event.stopPropagation()">
+    <div class="mhead"><h2>添加加班记录</h2><button class="mclose" onclick="closeOtAdd()">×</button></div>
+    <div class="mbody">
+      <div class="frow full"><div class="fg"><label>加班日期</label><input type="date" id="ot-date"></div></div>
+      <div class="frow full"><div class="fg"><label>加班时长（小时）</label><input type="number" id="ot-hours" placeholder="如 2 或 1.5" step="0.5" min="0.5"></div></div>
+      <div class="frow full"><div class="fg"><label>备注（可选）</label><input type="text" id="ot-note" placeholder="如：期末改卷、家长会等"></div></div>
+    </div>
+    <div class="mfoot">
+      <button class="btn btn-ghost" onclick="closeOtAdd()">取消</button>
+      <button class="btn btn-primary" onclick="saveOtAdd()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ 调休使用 模态框 ═══ -->
+<div class="modal-bg" id="tx-add-modal" onclick="bgClose('tx-add-modal')">
+  <div class="modal xs" onclick="event.stopPropagation()">
+    <div class="mhead"><h2>使用调休</h2><button class="mclose" onclick="closeTxAdd()">×</button></div>
+    <div class="mbody">
+      <div class="frow full"><div class="fg"><label>调休日期</label><input type="date" id="tx-date"></div></div>
+      <div class="frow full"><div class="fg"><label>使用时长（小时）</label><input type="number" id="tx-hours" placeholder="如 4 或 8" step="0.5" min="0.5"></div></div>
+      <div class="frow full"><div class="fg"><label>备注（可选）</label><input type="text" id="tx-note" placeholder="如：调休一天"></div></div>
+      <div style="font-size:11px;color:#aaa;margin-top:-4px" id="tx-avail-tip">当前可用调休：<b id="tx-avail-show">0</b> 小时</div>
+    </div>
+    <div class="mfoot">
+      <button class="btn btn-ghost" onclick="closeTxAdd()">取消</button>
+      <button class="btn btn-primary" onclick="saveTxAdd()">保存</button>
     </div>
   </div>
 </div>
@@ -581,7 +673,7 @@ async function doRegister(){
 // ══════════════════════════════
 //  本地数据存储（localStorage）—— 按用户隔离键名
 // ══════════════════════════════
-let STORAGE_KEY_RECS, STORAGE_KEY_RULES, DETACHED_KEY, STUDENT_LIST_KEY, SALARY_KEY, SALARY_CFG_KEY;
+let STORAGE_KEY_RECS, STORAGE_KEY_RULES, DETACHED_KEY, STUDENT_LIST_KEY, SALARY_KEY, SALARY_CFG_KEY, OT_KEY, TX_KEY;
 
 function setUserKeys(username){
   const p = "u_" + username + "_";
@@ -591,6 +683,8 @@ function setUserKeys(username){
   STUDENT_LIST_KEY = p + "students";
   SALARY_KEY = p + "salary";
   SALARY_CFG_KEY = p + "salary_cfg";
+  OT_KEY = p + "overtime";
+  TX_KEY = p + "txrest";
 }
 
 function loadRecs(){
@@ -692,7 +786,9 @@ async function pushToCloud(){
       detached: _detached,
       student_list: STUS,
       salary_history: getSalaryHistory(),
-      salary_config: JSON.parse(localStorage.getItem(SALARY_CFG_KEY)||"{}")
+      salary_config: JSON.parse(localStorage.getItem(SALARY_CFG_KEY)||"{}"),
+      overtime: getOvertimeList(),
+      txrest: getTxList()
     };
     await sb.from("app_state").upsert({id:1, data:allData, updated_at:new Date().toISOString()});
     console.log("☁️ 已同步「"+user+"」到云端");
@@ -724,6 +820,8 @@ async function loadFromCloud(){
   if(ud.student_list && Array.isArray(ud.student_list)){ STUS = ud.student_list; localStorage.setItem(STUDENT_LIST_KEY,JSON.stringify(STUS)); }
   if(ud.salary_history && typeof ud.salary_history==="object"){ localStorage.setItem(SALARY_KEY,JSON.stringify(ud.salary_history)); }
   if(ud.salary_config && typeof ud.salary_config==="object"){ localStorage.setItem(SALARY_CFG_KEY,JSON.stringify(ud.salary_config)); }
+  if(ud.overtime && Array.isArray(ud.overtime)){ localStorage.setItem(OT_KEY,JSON.stringify(ud.overtime)); }
+  if(ud.txrest && Array.isArray(ud.txrest)){ localStorage.setItem(TX_KEY,JSON.stringify(ud.txrest)); }
   _loading = false;
   if(hasData) console.log("☁️ 从云端加载了「"+user+"」的数据");
   return hasData;
@@ -1191,6 +1289,119 @@ function renderList(){
   calcSalary(tf);
 }
 
+// ══════════════════════════════
+//  加班 & 调休
+// ══════════════════════════════
+
+function getOvertimeList(){ try{ return JSON.parse(localStorage.getItem(OT_KEY)||"[]"); }catch(e){ return []; } }
+function saveOvertimeList(arr){ localStorage.setItem(OT_KEY,JSON.stringify(arr)); scheduleCloudSync(); }
+function getTxList(){ try{ return JSON.parse(localStorage.getItem(TX_KEY)||"[]"); }catch(e){ return []; } }
+function saveTxList(arr){ localStorage.setItem(TX_KEY,JSON.stringify(arr)); scheduleCloudSync(); }
+
+function renderOtPanel(){
+  const ot = getOvertimeList();
+  const tx = getTxList();
+  const totalOt = ot.reduce((s,r)=>s+(+r.hours||0),0);
+  const totalTx = tx.reduce((s,r)=>s+(+r.hours||0),0);
+  const avail = Math.max(0, totalOt - totalTx);
+
+  document.getElementById("ot-total").textContent = totalOt % 1 === 0 ? totalOt : totalOt.toFixed(1);
+  document.getElementById("ot-used").textContent = totalTx % 1 === 0 ? totalTx : totalTx.toFixed(1);
+  document.getElementById("ot-avail").textContent = avail % 1 === 0 ? avail : avail.toFixed(1);
+
+  // 加班明细
+  const ob = document.getElementById("ot-list-body");
+  if(!ot.length){
+    ob.innerHTML = '<tr><td colspan="4" class="ot-empty">暂无加班记录</td></tr>';
+  } else {
+    ob.innerHTML = ot.slice().sort((a,b)=>b.date.localeCompare(a.date)).map(r=>{
+      const [yy,mm,dd]=r.date.split("-");
+      return `<tr><td style="white-space:nowrap">${yy}年${+mm}月${+dd}日</td><td class="ot-h">${r.hours}h</td><td style="color:#888;font-size:12px">${r.note||"—"}</td><td style="text-align:center"><button class="btn-danger-sm" onclick="delOt('${r.id}')">删除</button></td></tr>`;
+    }).join("");
+  }
+
+  // 调休明细
+  const tb2 = document.getElementById("tx-list-body");
+  if(!tx.length){
+    tb2.innerHTML = '<tr><td colspan="4" class="ot-empty">暂无调休记录</td></tr>';
+  } else {
+    tb2.innerHTML = tx.slice().sort((a,b)=>b.date.localeCompare(a.date)).map(r=>{
+      const [yy,mm,dd]=r.date.split("-");
+      return `<tr><td style="white-space:nowrap">${yy}年${+mm}月${+dd}日</td><td class="ot-h-used">${r.hours}h</td><td style="color:#888;font-size:12px">${r.note||"—"}</td><td style="text-align:center"><button class="btn-danger-sm" onclick="delTx('${r.id}')">删除</button></td></tr>`;
+    }).join("");
+  }
+}
+
+function switchOtTab(tab){
+  document.getElementById("ot-tab-ot").classList.toggle("active", tab==="ot");
+  document.getElementById("ot-tab-tx").classList.toggle("active", tab==="tx");
+  document.getElementById("ot-tab-content-ot").style.display = tab==="ot"?"":"none";
+  document.getElementById("ot-tab-content-tx").style.display = tab==="tx"?"":"none";
+}
+
+function openOtAdd(){
+  document.getElementById("ot-date").value = new Date().toISOString().slice(0,10);
+  document.getElementById("ot-hours").value = "";
+  document.getElementById("ot-note").value = "";
+  document.getElementById("ot-add-modal").classList.add("open");
+}
+function closeOtAdd(){ document.getElementById("ot-add-modal").classList.remove("open"); }
+
+function saveOtAdd(){
+  const date = document.getElementById("ot-date").value;
+  const hours = parseFloat(document.getElementById("ot-hours").value);
+  const note = document.getElementById("ot-note").value.trim();
+  if(!date){ alert("请选择日期"); return; }
+  if(!hours || hours <= 0){ alert("请输入有效的加班时长"); return; }
+  const arr = getOvertimeList();
+  arr.push({ id: Date.now().toString(), date, hours, note });
+  saveOvertimeList(arr);
+  closeOtAdd();
+  renderOtPanel();
+  showToast("加班记录已保存");
+}
+
+function delOt(id){
+  if(!confirm("确认删除该加班记录？")) return;
+  saveOvertimeList(getOvertimeList().filter(r=>r.id!==id));
+  renderOtPanel();
+}
+
+function openTxAdd(){
+  const ot = getOvertimeList();
+  const tx = getTxList();
+  const avail = Math.max(0, ot.reduce((s,r)=>s+(+r.hours||0),0) - tx.reduce((s,r)=>s+(+r.hours||0),0));
+  document.getElementById("tx-avail-show").textContent = avail % 1 === 0 ? avail : avail.toFixed(1);
+  document.getElementById("tx-date").value = new Date().toISOString().slice(0,10);
+  document.getElementById("tx-hours").value = "";
+  document.getElementById("tx-note").value = "";
+  document.getElementById("tx-add-modal").classList.add("open");
+}
+function closeTxAdd(){ document.getElementById("tx-add-modal").classList.remove("open"); }
+
+function saveTxAdd(){
+  const date = document.getElementById("tx-date").value;
+  const hours = parseFloat(document.getElementById("tx-hours").value);
+  const note = document.getElementById("tx-note").value.trim();
+  if(!date){ alert("请选择日期"); return; }
+  if(!hours || hours <= 0){ alert("请输入有效的调休时长"); return; }
+  const ot = getOvertimeList();
+  const tx = getTxList();
+  const avail = Math.max(0, ot.reduce((s,r)=>s+(+r.hours||0),0) - tx.reduce((s,r)=>s+(+r.hours||0),0));
+  if(hours > avail){ alert(`当前可用调休仅剩 ${avail} 小时，无法使用 ${hours} 小时`); return; }
+  tx.push({ id: Date.now().toString(), date, hours, note });
+  saveTxList(tx);
+  closeTxAdd();
+  renderOtPanel();
+  showToast("调休记录已保存");
+}
+
+function delTx(id){
+  if(!confirm("确认删除该调休记录？")) return;
+  saveTxList(getTxList().filter(r=>r.id!==id));
+  renderOtPanel();
+}
+
 async function delR(id){
   if(!confirm("确认删除？")) return;
   const rec = RECS.find(r=>String(r.id)===String(id));
@@ -1424,7 +1635,7 @@ function switchView(v){
   document.getElementById("view-list").classList.toggle("active",v==="list");
   document.getElementById("tab-week").classList.toggle("active",v==="week");
   document.getElementById("tab-list").classList.toggle("active",v==="list");
-  if(v==="list") renderList();
+  if(v==="list"){ renderList(); renderOtPanel(); }
 }
 
 // ══════════════════════════════
@@ -1621,6 +1832,7 @@ async function initApp(){
     checkImportHistory();
     archiveLastMonth();
     recalcSalary();
+    renderOtPanel();
   }, 300);
 
   // 初次从本地同步到云端（云端为空时）
