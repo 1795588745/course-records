@@ -342,14 +342,40 @@ body{font-family:"PingFang SC","Microsoft YaHei",sans-serif;background:#f5f4f0;c
   }
 
   /* —— 列表表格：移动端紧凑 —— */
-  .list-tbl { font-size: 10px; table-layout: auto; }
-  .list-tbl th, .list-tbl td { padding: 5px 3px; word-break: break-all; }
+  .list-tbl { font-size: 10px; table-layout: fixed; width: 100%; }
+  .list-tbl th, .list-tbl td { padding: 5px 3px; vertical-align: middle; }
   .list-tbl th { font-size: 9px; white-space: normal; }
-  .list-tbl .btn { font-size: 10px; padding: 3px 5px; }
+  /* 手机端隐藏「人数」(第6列) 和「备注」(第8列)，释放空间 */
+  .list-tbl th:nth-child(6), .list-tbl td:nth-child(6),
+  .list-tbl th:nth-child(8), .list-tbl td:nth-child(8) { display: none; }
+  /* 列宽分配：日期 | 时间 | 类型 | 课时 | 学员 | 费用 | 操作 */
+  .list-tbl th:nth-child(1), .list-tbl td:nth-child(1) { width: 52px; white-space: normal !important; }
+  .list-tbl th:nth-child(2), .list-tbl td:nth-child(2) { width: 38px; }
+  .list-tbl th:nth-child(3), .list-tbl td:nth-child(3) { width: 54px; }
+  .list-tbl th:nth-child(4), .list-tbl td:nth-child(4) { width: 28px; text-align: center; }
+  .list-tbl th:nth-child(5), .list-tbl td:nth-child(5) { width: auto; }
+  .list-tbl th:nth-child(7), .list-tbl td:nth-child(7) { width: 44px; text-align: right; }
+  .list-tbl th:nth-child(9), .list-tbl td:nth-child(9) { width: 50px; text-align: center; }
+  .list-tbl .btn-edit-sm, .list-tbl .btn-danger-sm { font-size: 9px; padding: 2px 4px; margin: 0; }
+  .list-tbl td .badge { font-size: 9px; padding: 1px 4px; margin: 1px 1px 0 0; display: inline-block; }
+  .list-tbl td .fee-val { font-size: 10px; }
   .stats-bar { gap: 6px; }
   .stat-c { padding: 8px 10px; }
   .stat-c .num { font-size: 16px; }
   .stat-c .lbl { font-size: 10px; }
+
+  /* —— 月工资计算：手机端改 2 列 —— */
+  .salary-panel { padding: 10px 10px; }
+  .sp-grid label { gap: 2px; }
+  .sp-grid label span { font-size: 10px; }
+  .sp-grid label input { font-size: 11px; padding: 5px 6px; }
+  .sp-result { grid-template-columns: repeat(2, 1fr); gap: 6px; }
+  .sp-result-item { padding: 8px 8px; }
+  .sp-result-item .sp-label { font-size: 10px; }
+  .sp-result-item .sp-val { font-size: 15px; }
+  .sp-result-item .sp-detail { font-size: 9px; word-break: break-all; }
+  .sp-hist-table th, .sp-hist-table td { padding: 5px 4px; font-size: 10px; }
+  .sp-hist-table .btn-edit-sm, .sp-hist-table .btn-danger-sm { font-size: 9px; padding: 2px 4px; }
 
   /* —— 加班面板 —— */
   .ot-panel { margin: 12px 0 0; padding: 12px 12px; }
