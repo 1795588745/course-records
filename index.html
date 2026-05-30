@@ -258,48 +258,81 @@ body{font-family:"PingFang SC","Microsoft YaHei",sans-serif;background:#f5f4f0;c
   }
   .btn-logout { font-size: 11px; padding: 6px 8px; }
 
-  /* —— 工具栏：两行 —— */
+  /* —— 工具栏：紧凑一行 —— */
   .toolbar {
-    padding: 7px 10px;
-    gap: 7px;
+    padding: 5px 10px;
+    gap: 6px;
+    flex-wrap: nowrap;
   }
-  .week-nav { flex: 1; }
+  .week-nav { flex: 1; min-width: 0; }
   .week-label {
-    font-size: 12px;
+    font-size: 11px;
     min-width: 0;
     flex: 1;
     text-align: center;
   }
-  .toolbar-right { margin-left: 0; }
-  .btn-primary { font-size: 11px; padding: 5px 10px; }
+  .toolbar-right { margin-left: 0; gap: 5px; flex-shrink: 0; }
+  .btn-primary { font-size: 11px; padding: 5px 8px; }
+  .view-tabs { gap: 2px; }
+  .view-tab { font-size: 11px; padding: 4px 8px; }
 
-  /* —— 周视图：缩小时间轴，优化列宽 —— */
-  .cal-container { padding: 0 8px 20px; }
-  .cal-wrap { margin-top: 10px; max-height: calc(100vh - 160px); }
+  /* —— body 禁止页面级滚动（仅移动端），周视图内部管理自己 —— */
+  body {
+    overflow: hidden;
+    height: 100vh;
+    height: 100dvh;
+  }
 
-  .cal-head { grid-template-columns: 36px repeat(7, 1fr); }
-  .cal-head-gutter { /* 时间轴 gutter */ }
-  .cal-head-day { padding: 5px 2px; }
+  /* —— 周视图：撑满剩余高度，不允许溢出 —— */
+  .cal-container {
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    height: calc(100dvh - var(--topbar-h, 96px));
+    overflow: hidden;
+  }
+  .cal-container.active { display: flex; }
+  .cal-wrap {
+    flex: 1;
+    margin: 0;
+    border-radius: 0;
+    border-left: none;
+    border-right: none;
+    border-bottom: none;
+    max-height: none;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+  /* 日历主体：不单独滚动（全部内容都要在屏幕内显示） */
+  .cal-body { overflow-y: hidden !important; flex: 1; }
+
+  /* 日历头部 */
+  .cal-head { grid-template-columns: 36px repeat(7, 1fr); flex-shrink: 0; }
+  .cal-head-day { padding: 4px 2px; }
   .day-name { font-size: 9px; }
-  .day-num { font-size: 15px; }
-  .day-num.is-today { width: 24px; height: 24px; font-size: 13px; }
+  .day-num { font-size: 14px; }
+  .day-num.is-today { width: 22px; height: 22px; font-size: 12px; }
   .day-cnt { font-size: 9px; }
 
+  /* 时间轴 */
   .cal-time-gutter { width: 36px; }
-  .time-cell { font-size: 9px; padding: 3px 3px 0; height: 56px; }
-
-  /* 每小时高度从60px→52px，与 JS CELL_H 保持一致 */
-  .hour-slot { height: 52px; }
-  .time-cell { height: 52px; }
+  /* time-cell 和 hour-slot 高度由 JS 动态注入，CSS 不写死 */
+  .time-cell { font-size: 8px; padding: 2px 3px 0; }
 
   /* 课程块文字 */
-  .cb { padding: 3px 4px; border-radius: 5px; left: 1px; right: 1px; }
-  .cb-time { font-size: 9px; }
-  .cb-stu { font-size: 10px; margin-top: 1px; }
-  .cb-fee { font-size: 9px; }
+  .cb { padding: 2px 3px; border-radius: 4px; left: 1px; right: 1px; }
+  .cb-time { font-size: 8px; }
+  .cb-stu  { font-size: 9px;  margin-top: 1px; }
+  .cb-fee  { font-size: 8px; }
 
-  /* —— 列表视图 —— */
-  .list-container { padding: 0 10px 20px; }
+  /* —— 列表视图：自己有滚动区域 —— */
+  .list-container {
+    padding: 0 10px 20px;
+    height: calc(100dvh - var(--topbar-h, 96px));
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
 
   /* —— 加班面板 —— */
   .ot-panel { margin: 12px 0 0; padding: 12px 12px; }
@@ -307,7 +340,7 @@ body{font-family:"PingFang SC","Microsoft YaHei",sans-serif;background:#f5f4f0;c
   .ot-stat { padding: 8px 8px; }
   .ot-stat .ot-num { font-size: 17px; }
 
-  /* —— 模态框：全屏弹出 —— */
+  /* —— 模态框：全屏弹出，内部可滚动 —— */
   .modal { width: 94vw; max-height: 90vh; overflow-y: auto; }
   .modal.xs { width: 94vw; }
 }
@@ -943,8 +976,23 @@ async function loadFromCloud(){
 //  常量
 // ══════════════════════════════
 const HOUR_START = 8, HOUR_END = 22;
-// 手机端缩小格子高度，桌面端保持60px
-const CELL_H = window.innerWidth <= 600 ? 52 : 60;
+
+// 计算手机端每格高度，使日历撑满屏幕不需滚动
+function calcCellH() {
+  if (window.innerWidth > 600) return 60; // 桌面端固定60px
+  const screenH = window.innerHeight;
+  const topBar = document.querySelector('.top-bar');
+  const toolbar = document.querySelector('.toolbar');
+  const calHead = document.querySelector('.cal-head');
+  const topH = (topBar ? topBar.getBoundingClientRect().height : 70) +
+               (toolbar ? toolbar.getBoundingClientRect().height : 38) +
+               (calHead ? calHead.getBoundingClientRect().height : 50);
+  const avail = screenH - topH - 2; // 2px 缓冲
+  const h = Math.floor(avail / (HOUR_END - HOUR_START));
+  return Math.max(h, 24); // 最小24px
+}
+
+let CELL_H = 60; // 初始值，待 DOM ready 后更新
 const DAY_NAMES = ["周一","周二","周三","周四","周五","周六","周日"];
 const FEE_RULES = {
   "初中一对一":{2:130,1.5:97.5},
@@ -1084,6 +1132,20 @@ function timeToMinutes(t){
 //  渲染周视图
 // ══════════════════════════════
 function renderCal(){
+  // 在移动端每次渲染前重新计算格子高度（让日历撑满屏幕）
+  if (window.innerWidth <= 600) {
+    // 精确测量已渲染的 DOM 高度
+    const topBar = document.querySelector('.top-bar');
+    const toolbar = document.querySelector('.toolbar');
+    const topH = (topBar ? topBar.getBoundingClientRect().height : 70) +
+                 (toolbar ? toolbar.getBoundingClientRect().height : 44);
+    document.documentElement.style.setProperty('--topbar-h', Math.round(topH) + 'px');
+    CELL_H = calcCellH();
+    // 动态注入 .time-cell / .hour-slot 高度（精确匹配 JS 计算值）
+    let mStyle = document.getElementById('_mobile_cell_style');
+    if (!mStyle) { mStyle = document.createElement('style'); mStyle.id = '_mobile_cell_style'; document.head.appendChild(mStyle); }
+    mStyle.textContent = `.time-cell{height:${CELL_H}px!important}.hour-slot{height:${CELL_H}px!important}`;
+  }
   generateFromRules();
   const recs = getVisibleRecs();
   const days = Array.from({length:7},(_,i)=>{ const d=new Date(weekStart); d.setDate(d.getDate()+i); return d; });
@@ -1942,6 +2004,10 @@ async function initApp(){
 
   initSelects();
   renderCal();
+  // 移动端：DOM 稳定后再渲染一次，确保格子高度精确撑满屏幕
+  if (window.innerWidth <= 600) {
+    requestAnimationFrame(() => requestAnimationFrame(() => renderCal()));
+  }
   setTimeout(()=>{
     loadSalaryConfig();
     checkImportHistory();
