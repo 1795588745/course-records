@@ -279,8 +279,10 @@ body{font-family:"PingFang SC","Microsoft YaHei",sans-serif;background:#f5f4f0;c
   /* —— body 禁止页面级滚动（仅移动端），周视图内部管理自己 —— */
   body {
     overflow: hidden;
+    overflow-x: hidden;
     height: 100vh;
     height: 100dvh;
+    max-width: 100vw;
   }
 
   /* —— 周视图：撑满剩余高度，不允许溢出 —— */
@@ -328,13 +330,26 @@ body{font-family:"PingFang SC","Microsoft YaHei",sans-serif;background:#f5f4f0;c
   .cb-stu  { font-size: 9px;  margin-top: 1px; }
   .cb-fee  { font-size: 8px; }
 
-  /* —— 列表视图：自己有滚动区域 —— */
+  /* —— 列表视图：自己有滚动区域，禁止横向溢出 —— */
   .list-container {
     padding: 0 10px 20px;
     height: calc(100dvh - var(--topbar-h, 96px) - var(--bottombar-h, 0px));
     overflow-y: auto;
+    overflow-x: hidden;
     -webkit-overflow-scrolling: touch;
+    max-width: 100vw;
+    overscroll-behavior-x: contain;
   }
+
+  /* —— 列表表格：移动端紧凑 —— */
+  .list-tbl { font-size: 10px; table-layout: auto; }
+  .list-tbl th, .list-tbl td { padding: 5px 3px; word-break: break-all; }
+  .list-tbl th { font-size: 9px; white-space: normal; }
+  .list-tbl .btn { font-size: 10px; padding: 3px 5px; }
+  .stats-bar { gap: 6px; }
+  .stat-c { padding: 8px 10px; }
+  .stat-c .num { font-size: 16px; }
+  .stat-c .lbl { font-size: 10px; }
 
   /* —— 加班面板 —— */
   .ot-panel { margin: 12px 0 0; padding: 12px 12px; }
