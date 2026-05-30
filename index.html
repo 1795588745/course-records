@@ -236,12 +236,12 @@ body{font-family:"PingFang SC","Microsoft YaHei",sans-serif;background:#f5f4f0;c
    ══════════════════════════════════════ */
 @media (max-width: 600px) {
 
-  /* —— 顶栏：两行布局 —— */
+  /* —— 顶栏：两行布局，顶部留出灵动岛安全距离 —— */
   .top-bar{
     height: auto;
     flex-direction: column;
     align-items: stretch;
-    padding: 8px 12px 6px;
+    padding: max(8px, env(safe-area-inset-top)) 12px 6px;
     gap: 6px;
   }
   .top-bar h1 { font-size: 16px; }
@@ -288,7 +288,7 @@ body{font-family:"PingFang SC","Microsoft YaHei",sans-serif;background:#f5f4f0;c
     padding: 0;
     display: flex;
     flex-direction: column;
-    height: calc(100dvh - var(--topbar-h, 96px));
+    height: calc(100dvh - var(--topbar-h, 96px) - var(--bottombar-h, 0px));
     overflow: hidden;
   }
   .cal-container.active { display: flex; }
@@ -329,7 +329,7 @@ body{font-family:"PingFang SC","Microsoft YaHei",sans-serif;background:#f5f4f0;c
   /* —— 列表视图：自己有滚动区域 —— */
   .list-container {
     padding: 0 10px 20px;
-    height: calc(100dvh - var(--topbar-h, 96px));
+    height: calc(100dvh - var(--topbar-h, 96px) - var(--bottombar-h, 0px));
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
   }
@@ -984,10 +984,12 @@ function calcCellH() {
   const topBar = document.querySelector('.top-bar');
   const toolbar = document.querySelector('.toolbar');
   const calHead = document.querySelector('.cal-head');
+  const bodyStyle = getComputedStyle(document.body);
+  const bodyPadBottom = parseInt(bodyStyle.paddingBottom) || 0;
   const topH = (topBar ? topBar.getBoundingClientRect().height : 70) +
                (toolbar ? toolbar.getBoundingClientRect().height : 38) +
                (calHead ? calHead.getBoundingClientRect().height : 50);
-  const avail = screenH - topH - 2; // 2px 缓冲
+  const avail = screenH - topH - bodyPadBottom;
   const h = Math.floor(avail / (HOUR_END - HOUR_START));
   return Math.max(h, 24); // 最小24px
 }
@@ -1134,12 +1136,17 @@ function timeToMinutes(t){
 function renderCal(){
   // 在移动端每次渲染前重新计算格子高度（让日历撑满屏幕）
   if (window.innerWidth <= 600) {
-    // 精确测量已渲染的 DOM 高度
+    // 精确测量已渲染的 DOM 高度（含 body 安全区域）
     const topBar = document.querySelector('.top-bar');
     const toolbar = document.querySelector('.toolbar');
-    const topH = (topBar ? topBar.getBoundingClientRect().height : 70) +
+    const bodyStyle = getComputedStyle(document.body);
+    const bodyPadTop = parseInt(bodyStyle.paddingTop) || 0;
+    const bodyPadBottom = parseInt(bodyStyle.paddingBottom) || 0;
+    const topH = bodyPadTop +
+                 (topBar ? topBar.getBoundingClientRect().height : 70) +
                  (toolbar ? toolbar.getBoundingClientRect().height : 44);
     document.documentElement.style.setProperty('--topbar-h', Math.round(topH) + 'px');
+    document.documentElement.style.setProperty('--bottombar-h', Math.round(bodyPadBottom) + 'px');
     CELL_H = calcCellH();
     // 动态注入 .time-cell / .hour-slot 高度（精确匹配 JS 计算值）
     let mStyle = document.getElementById('_mobile_cell_style');
