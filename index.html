@@ -230,6 +230,96 @@ body{font-family:"PingFang SC","Microsoft YaHei",sans-serif;background:#f5f4f0;c
 .btn-logout{background:none;border:1px solid #e8d0cf;color:#c0392b;border-radius:6px;padding:4px 10px;font-size:11px;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:4px}
 .btn-logout:hover{background:#fdf2f2}
 
+/* ══════════════════════════════════════
+   手机端响应式（≤600px）
+   桌面端布局完全不受影响
+   ══════════════════════════════════════ */
+@media (max-width: 600px) {
+
+  /* —— 顶栏：两行布局 —— */
+  .top-bar{
+    height: auto;
+    flex-direction: column;
+    align-items: stretch;
+    padding: 8px 12px 6px;
+    gap: 6px;
+  }
+  .top-bar h1 { font-size: 16px; }
+  .top-bar-right{
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr auto;
+    gap: 5px;
+  }
+  .top-bar-right .btn {
+    font-size: 11px;
+    padding: 6px 4px;
+    text-align: center;
+    white-space: nowrap;
+  }
+  .btn-logout { font-size: 11px; padding: 6px 8px; }
+
+  /* —— 工具栏：两行 —— */
+  .toolbar {
+    padding: 7px 10px;
+    gap: 7px;
+  }
+  .week-nav { flex: 1; }
+  .week-label {
+    font-size: 12px;
+    min-width: 0;
+    flex: 1;
+    text-align: center;
+  }
+  .toolbar-right { margin-left: 0; }
+  .btn-primary { font-size: 11px; padding: 5px 10px; }
+
+  /* —— 周视图：缩小时间轴，优化列宽 —— */
+  .cal-container { padding: 0 8px 20px; }
+  .cal-wrap { margin-top: 10px; max-height: calc(100vh - 160px); }
+
+  .cal-head { grid-template-columns: 36px repeat(7, 1fr); }
+  .cal-head-gutter { /* 时间轴 gutter */ }
+  .cal-head-day { padding: 5px 2px; }
+  .day-name { font-size: 9px; }
+  .day-num { font-size: 15px; }
+  .day-num.is-today { width: 24px; height: 24px; font-size: 13px; }
+  .day-cnt { font-size: 9px; }
+
+  .cal-time-gutter { width: 36px; }
+  .time-cell { font-size: 9px; padding: 3px 3px 0; height: 56px; }
+
+  /* 每小时高度从60px→52px，与 JS CELL_H 保持一致 */
+  .hour-slot { height: 52px; }
+  .time-cell { height: 52px; }
+
+  /* 课程块文字 */
+  .cb { padding: 3px 4px; border-radius: 5px; left: 1px; right: 1px; }
+  .cb-time { font-size: 9px; }
+  .cb-stu { font-size: 10px; margin-top: 1px; }
+  .cb-fee { font-size: 9px; }
+
+  /* —— 列表视图 —— */
+  .list-container { padding: 0 10px 20px; }
+
+  /* —— 加班面板 —— */
+  .ot-panel { margin: 12px 0 0; padding: 12px 12px; }
+  .ot-stats { gap: 6px; }
+  .ot-stat { padding: 8px 8px; }
+  .ot-stat .ot-num { font-size: 17px; }
+
+  /* —— 模态框：全屏弹出 —— */
+  .modal { width: 94vw; max-height: 90vh; overflow-y: auto; }
+  .modal.xs { width: 94vw; }
+}
+
+/* 超小屏额外补丁（≤380px，如 SE 等老机型）*/
+@media (max-width: 380px) {
+  .day-name { font-size: 8px; }
+  .day-num { font-size: 13px; }
+  .time-cell { font-size: 8px; }
+  .cb-time, .cb-stu, .cb-fee { font-size: 9px; }
+}
+
 /* ── 加班/调休面板 ── */
 .ot-panel{background:#fff;border:1px solid #e8e7e3;border-radius:12px;margin:16px 20px 0;padding:16px 20px}
 .ot-title{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
@@ -853,7 +943,8 @@ async function loadFromCloud(){
 //  常量
 // ══════════════════════════════
 const HOUR_START = 8, HOUR_END = 22;
-const CELL_H = 60;
+// 手机端缩小格子高度，桌面端保持60px
+const CELL_H = window.innerWidth <= 600 ? 52 : 60;
 const DAY_NAMES = ["周一","周二","周三","周四","周五","周六","周日"];
 const FEE_RULES = {
   "初中一对一":{2:130,1.5:97.5},
