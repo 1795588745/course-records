@@ -286,12 +286,14 @@ body{font-family:"PingFang SC","Microsoft YaHei",sans-serif;background:#f5f4f0;c
   /* —— 周视图：撑满剩余高度，不允许溢出 —— */
   .cal-container {
     padding: 0;
-    display: flex;
+    display: none;          /* 仅 active 时显示 */
     flex-direction: column;
     height: calc(100dvh - var(--topbar-h, 96px) - var(--bottombar-h, 0px));
     overflow: hidden;
   }
   .cal-container.active { display: flex; }
+  .list-container { display: none; }
+  .list-container.active { display: block; }
   .cal-wrap {
     flex: 1;
     margin: 0;
