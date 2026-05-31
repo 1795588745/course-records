@@ -949,25 +949,41 @@ let sb = null, cloudReady = false;
 function initSupabase(){
   try { sb = window.supabase.createClient(SB_URL, SB_KEY); cloudReady = true; }
   catch(e){ console.warn("Supabase 初始化失败，仅本地模式"); cloudReady = false; return; }
+
   // ═══ 实时订阅：云端数据变化时自动刷新 ═══
   try {
-    if (sb.realtime && typeof sb.channel === "function") {
-      const ch = sb.channel("app_state_changes")
-        .on("postgres_changes", { event: "UPDATE", schema: "public", table: "app_state" }, (payload) => {
+    // Supabase JS v2: sb.channel() 始终可用，直接创建频道
+    const ch = sb.channel("rt_app_state")
+      .on("postgres_changes", {
+          event: "UPDATE",
+          schema: "public",
+          table: "app_state",
+          filter: "id=eq.1"   // 只订阅 id=1 这一行
+        }, (payload) => {
           const user = getCurrentUser();
           if (!user) return;
-          // 仅当变化涉及当前用户的数据时才刷新，避免无关通知
+          console.log("☁️ Realtime: 检测到 app_state 更新", payload);
+          // payload.new 是整行记录， payload.new.data 是 JSONB 字段
           const newData = payload.new && payload.new.data ? payload.new.data[user] : null;
           if (newData) {
-            console.log("☁️ 检测到云端数据变化，正在刷新…");
-            loadFromCloud().then(() => refresh());
+            console.log("☁️ 正在从云端刷新数据…");
+            loadFromCloud().then(() => {
+              refresh();
+              console.log("☁️ 刷新完成");
+            });
           }
         })
-        .subscribe((status) => {
-          console.log("📡 Realtime status:", status);
-        });
-    }
-  } catch(e) { console.warn("Realtime 订阅失败，不影响正常使用:", e.message); }
+      .subscribe((status, err) => {
+        console.log("📡 Realtime status:", status);
+        if (status === "CHANNEL_ERROR") {
+          console.warn("Realtime 订阅出错，将在 5 秒后重试…", err);
+          setTimeout(() => { if(sb && ch) ch.subscribe(); }, 5000);
+        }
+      });
+    console.log("📡 Realtime 订阅已注册");
+  } catch(e) {
+    console.warn("Realtime 订阅初始化失败，不影响正常使用:", e.message);
+  }
 }
 
 async function fetchFromCloudRaw(){
