@@ -1029,6 +1029,7 @@ function calcCellH() {
   const calHead = document.querySelector('.cal-head');
   const bodyStyle = getComputedStyle(document.body);
   const bodyPadBottom = parseInt(bodyStyle.paddingBottom) || 0;
+  // .top-bar 的 getBoundingClientRect().height 已包含其 padding（含 safe-area-inset-top）
   const topH = (topBar ? topBar.getBoundingClientRect().height : 70) +
                (toolbar ? toolbar.getBoundingClientRect().height : 38) +
                (calHead ? calHead.getBoundingClientRect().height : 50);
@@ -1179,14 +1180,13 @@ function timeToMinutes(t){
 function renderCal(){
   // 在移动端每次渲染前重新计算格子高度（让日历撑满屏幕）
   if (window.innerWidth <= 600) {
-    // 精确测量已渲染的 DOM 高度（含 body 安全区域）
+    // 精确测量已渲染的 DOM 高度（不含 body 安全区，避免重复计算）
     const topBar = document.querySelector('.top-bar');
     const toolbar = document.querySelector('.toolbar');
     const bodyStyle = getComputedStyle(document.body);
-    const bodyPadTop = parseInt(bodyStyle.paddingTop) || 0;
     const bodyPadBottom = parseInt(bodyStyle.paddingBottom) || 0;
-    const topH = bodyPadTop +
-                 (topBar ? topBar.getBoundingClientRect().height : 70) +
+    // .top-bar 的 getBoundingClientRect().height 已包含其 padding（含 safe-area-inset-top）
+    const topH = (topBar ? topBar.getBoundingClientRect().height : 70) +
                  (toolbar ? toolbar.getBoundingClientRect().height : 44);
     document.documentElement.style.setProperty('--topbar-h', Math.round(topH) + 'px');
     document.documentElement.style.setProperty('--bottombar-h', Math.round(bodyPadBottom) + 'px');
@@ -1210,12 +1210,12 @@ function renderCal(){
   }).join("");
 
   const gut = document.getElementById("time-gutter");
-  gut.innerHTML = Array.from({length:HOUR_END-HOUR_START},(_,i)=>`<div class="time-cell">${p2(HOUR_START+i)}:00</div>`).join("");
+  gut.innerHTML = Array.from({length:HOUR_END-HOUR_START+1},(_,i)=>`<div class="time-cell">${p2(HOUR_START+i)}:00</div>`).join("");
 
   const calDays = document.getElementById("cal-days");
-  const totalH = (HOUR_END-HOUR_START)*CELL_H;
+  const totalH = (HOUR_END-HOUR_START+1)*CELL_H;
   calDays.innerHTML = days.map((d,di)=>{
-    return `<div class="day-col ${isToday(d)?"is-today":""}" id="dc-${di}" style="height:${totalH}px">${Array.from({length:HOUR_END-HOUR_START},(_,hi)=>`<div class="hour-line" style="top:${hi*CELL_H}px"></div><div class="hour-slot" style="top:${hi*CELL_H}px" data-date="${dkey(d)}" data-h="${HOUR_START+hi}" onclick="onSlotClick('${dkey(d)}',${HOUR_START+hi},event)"></div>`).join("")}</div>`;
+    return `<div class="day-col ${isToday(d)?"is-today":""}" id="dc-${di}" style="height:${totalH}px">${Array.from({length:HOUR_END-HOUR_START+1},(_,hi)=>`<div class="hour-line" style="top:${hi*CELL_H}px"></div><div class="hour-slot" style="top:${hi*CELL_H}px" data-date="${dkey(d)}" data-h="${HOUR_START+hi}" onclick="onSlotClick('${dkey(d)}',${HOUR_START+hi},event)"></div>`).join("")}</div>`;
   }).join("");
 
   recs.forEach(r=>{
