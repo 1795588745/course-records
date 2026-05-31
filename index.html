@@ -100,7 +100,8 @@ body{font-family:"PingFang SC","Microsoft YaHei",sans-serif;background:#f5f4f0;c
 .day-col.drag-over{background:rgba(83,74,183,.07)}
 .cb.cj{background:#4A90D9;color:#fff}
 .cb.cs{background:#D9534A;color:#fff}
-.cb.cg{background:#534AB7;color:#fff}
+.cb.cm{background:#3BA99C;color:#fff}
+.cb.ch{background:#E67E22;color:#fff}
 .cb.from-rule{border-left:3px solid #f0ad4e}
 .cb-time{font-size:11px;opacity:.85;white-space:nowrap}
 .cb-stu{font-size:12px;font-weight:600;white-space:normal;word-break:break-all;line-height:1.4;margin-top:2px}
@@ -124,6 +125,10 @@ body{font-family:"PingFang SC","Microsoft YaHei",sans-serif;background:#f5f4f0;c
 .empty{text-align:center;color:#aaa;padding:40px 0;font-size:13px}
 .fee-val{font-weight:600;color:#0F6E56}
 .badge{display:inline-block;padding:2px 7px;border-radius:4px;font-size:11px;margin:1px 2px}
+.badge.bj{background:#dbe9f8;color:#4A90D9;border:1px solid #bdd4ec}
+.badge.bs{background:#fce4e4;color:#D9534A;border:1px solid #f5c6c6}
+.badge.bm{background:#d9f2ec;color:#3BA99C;border:1px solid #b8e2d8}
+.badge.bh{background:#fde8d0;color:#E67E22;border:1px solid #f8d0a0}
 .bj{background:#E6F1FB;color:#185FA5}.bs{background:#FCEBEB;color:#A32D2D}.bg{background:#EEEDFE;color:#534AB7}
 .rule-tag{display:inline-block;padding:1px 5px;border-radius:3px;font-size:10px;background:#FFF8E7;color:#BA7517;border:1px solid #F5DFA0;margin-left:4px;vertical-align:middle}
 
@@ -609,7 +614,7 @@ body{font-family:"PingFang SC","Microsoft YaHei",sans-serif;background:#f5f4f0;c
         <div class="fg"><label>截止日期（可选）</label><input type="date" id="i-rule-end"></div>
       </div>
       <div class="frow">
-        <div class="fg"><label>课程类型</label><select id="i-type" onchange="calcPreview()"><option value="初中一对一">初中一对一</option><option value="高中一对一">高中一对一</option><option value="一对多">一对多</option></select></div>
+        <div class="fg"><label>课程类型</label><select id="i-type" onchange="calcPreview()"><option value="初中一对一">初中一对一</option><option value="高中一对一">高中一对一</option><option value="初中一对多">初中一对多</option><option value="高中一对多">高中一对多</option></select></div>
         <div class="fg"><label>课时时长</label><select id="i-dur" onchange="calcPreview()"><option value="2">2小时</option><option value="1.5">1.5小时</option></select></div>
       </div>
       <div class="frow full"><div class="fg"><label>到课学员（可多选）</label><div class="stu-box" id="stu-box"></div></div></div>
@@ -1036,6 +1041,16 @@ async function loadFromCloud(){
   if(!cloud || !cloud[user]){ _loading = false; return false; }
   const ud = cloud[user];
 
+  // ═══ 后台迁移：旧版 "一对多" → "初中一对多" ═══
+  let migrated = false;
+  [ud.recs, ud.rules].forEach(arr => {
+    if(!Array.isArray(arr)) return;
+    arr.forEach(r => {
+      if(r.type === "一对多"){ r.type = "初中一对多"; migrated = true; }
+    });
+  });
+  if(migrated) console.log("🔄 已将旧版「一对多」类型自动迁移为「初中一对多」");
+
   // 合并到内存（不触发云端回推）
   let hasData = false;
   if(ud.recs && Array.isArray(ud.recs)){ RECS = ud.recs; localStorage.setItem(STORAGE_KEY_RECS,JSON.stringify(RECS)); hasData = true; }
@@ -1079,7 +1094,8 @@ const DAY_NAMES = ["周一","周二","周三","周四","周五","周六","周日
 const FEE_RULES = {
   "初中一对一":{2:130,1.5:97.5},
   "高中一对一":{2:160,1.5:120},
-  "一对多":{"junior":{1:130,2:160,3:190,4:210},"senior":{1:160,2:190,3:220,4:240}}
+  "初中一对多":{1:130,2:160,3:190,4:210},
+  "高中一对多":{1:160,2:190,3:220,4:240}}
 };
 const DEFAULT_STUS = [
   {name:"吴彦希",grade:"junior"},{name:"管晨皓",grade:"junior"},{name:"俞跃",grade:"junior"},
@@ -1115,18 +1131,15 @@ function saveDetached(){
 function calcFee(type,dur,cnt){
   if(type==="初中一对一") return FEE_RULES["初中一对一"][dur]||0;
   if(type==="高中一对一") return FEE_RULES["高中一对一"][dur]||0;
-  const grade = getMultiGrade(cnt);
-  const rules = FEE_RULES["一对多"][grade];
-  if(!rules) return 0;
-  if(dur===1.5) return grade==="junior"?97.5:120;
-  return cnt>0?(rules[Math.min(cnt,4)]||0):0;
-}
-function getMultiGrade(cnt){
-  if(cnt===0) return "junior";
-  const checked = getChecked();
-  let j=0,s=0;
-  checked.forEach(n=>{const st=STUS.find(x=>x.name===n);if(st&&st.grade==="senior")s++;else j++;});
-  return s>j?"senior":"junior";
+  if(type==="初中一对多") {
+    if(dur===1.5) return 97.5;
+    return cnt>0?(FEE_RULES["初中一对多"][Math.min(cnt,4)]||0):0;
+  }
+  if(type==="高中一对多") {
+    if(dur===1.5) return 120;
+    return cnt>0?(FEE_RULES["高中一对多"][Math.min(cnt,4)]||0):0;
+  }
+  return 0;
 }
 function p2(n){return String(n).padStart(2,"0")}
 function dkey(d){return `${d.getFullYear()}-${p2(d.getMonth()+1)}-${p2(d.getDate())}`}
@@ -1263,7 +1276,7 @@ function renderCal(){
     if(!col) return;
     const topPx = (sh-HOUR_START)*CELL_H + sm/60*CELL_H;
     const heightPx = Math.max(r.duration*CELL_H-4, 24);
-    const typeClass = r.type==="高中一对一"?"cs":r.type==="一对多"?"cg":"cj";
+    const typeClass = r.type==="高中一对一"?"cs":r.type==="初中一对多"?"cm":r.type==="高中一对多"?"ch":"cj";
     const stuText = r.students.join("、");
     const isFromRule = !!r.ruleId;
     const block = document.createElement("div");
@@ -1413,7 +1426,7 @@ function calcPreview(){
   const cnt=getChecked().length;
   const fee=calcFee(type,dur,cnt);
   document.getElementById("fee-amt").textContent="¥"+fee;
-  document.getElementById("fee-rule").textContent=type==="一对多"?`${cnt}人 → ${fee}元`:`${dur}h → ${fee}元`;
+  document.getElementById("fee-rule").textContent=(type==="初中一对多"||type==="高中一对多")?`${cnt}人 → ${fee}元`:`${dur}h → ${fee}元`;
 }
 
 async function saveRecord(){
@@ -1538,7 +1551,7 @@ function renderList(){
   let tf=0,th=0,ts=0;
   tb.innerHTML=f.map(r=>{
     tf+=r.fee;th+=r.duration;ts+=r.students.length;
-    const tc=r.type==="高中一对一"?"bs":r.type==="一对多"?"bg":"bj";
+    const tc=r.type==="高中一对一"?"bs":r.type==="初中一对多"?"bm":r.type==="高中一对多"?"bh":"bj";
     const sb=r.students.map(s=>{ const info=STUS.find(x=>x.name===s); return `<span class="badge ${info&&info.grade==="senior"?"bs":"bj"}">${s}</span>`; }).join("");
     const [yy,mm,dd]=r.date.split("-");
     const timeCell=r.startTime?`<span style="white-space:nowrap;color:#888">${r.startTime}</span>`:`<span style="white-space:nowrap;color:#c0392b;font-size:11px;background:#fdf2f2;padding:1px 6px;border-radius:4px;border:1px solid #f5c6c6">未排课</span>`;
@@ -1989,7 +2002,7 @@ function getDragTooltip(){
   return dragTooltip;
 }
 function createGhost(block, rec){
-  const typeColors = {"初中一对一":"#4A90D9","高中一对一":"#D9534A","一对多":"#534AB7"};
+  const typeColors = {"初中一对一":"#4A90D9","高中一对一":"#D9534A","初中一对多":"#3BA99C","高中一对多":"#E67E22"};
   const bgColor = typeColors[rec.type]||"#4A90D9";
   const h=block.getBoundingClientRect().height;
   const g=document.createElement("div");
