@@ -948,7 +948,26 @@ let sb = null, cloudReady = false;
 
 function initSupabase(){
   try { sb = window.supabase.createClient(SB_URL, SB_KEY); cloudReady = true; }
-  catch(e){ console.warn("Supabase 初始化失败，仅本地模式"); cloudReady = false; }
+  catch(e){ console.warn("Supabase 初始化失败，仅本地模式"); cloudReady = false; return; }
+  // ═══ 实时订阅：云端数据变化时自动刷新 ═══
+  try {
+    if (sb.realtime && typeof sb.channel === "function") {
+      const ch = sb.channel("app_state_changes")
+        .on("postgres_changes", { event: "UPDATE", schema: "public", table: "app_state" }, (payload) => {
+          const user = getCurrentUser();
+          if (!user) return;
+          // 仅当变化涉及当前用户的数据时才刷新，避免无关通知
+          const newData = payload.new && payload.new.data ? payload.new.data[user] : null;
+          if (newData) {
+            console.log("☁️ 检测到云端数据变化，正在刷新…");
+            loadFromCloud().then(() => refresh());
+          }
+        })
+        .subscribe((status) => {
+          console.log("📡 Realtime status:", status);
+        });
+    }
+  } catch(e) { console.warn("Realtime 订阅失败，不影响正常使用:", e.message); }
 }
 
 async function fetchFromCloudRaw(){
