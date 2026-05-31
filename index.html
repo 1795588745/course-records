@@ -885,6 +885,7 @@ function loadRecs(){
 }
 function saveRecs(){
   localStorage.setItem(STORAGE_KEY_RECS, JSON.stringify(RECS));
+  _hasUnpushedChanges = true;
   scheduleCloudSync();
 }
 function loadRules(){
@@ -892,6 +893,7 @@ function loadRules(){
 }
 function saveRules(){
   localStorage.setItem(STORAGE_KEY_RULES, JSON.stringify(RULES));
+  _hasUnpushedChanges = true;
   scheduleCloudSync();
 }
 
@@ -1003,6 +1005,7 @@ async function fetchFromCloudRaw(){
 
 async function pushToCloud(){
   if(!cloudReady) return;
+  _hasUnpushedChanges = false;
   try {
     const user = getCurrentUser();
     if(!user) return;
@@ -1021,10 +1024,10 @@ async function pushToCloud(){
     };
     await sb.from("app_state").upsert({id:1, data:allData, updated_at:new Date().toISOString()});
     console.log("☁️ 已同步「"+user+"」到云端");
-  }catch(e){ console.warn("云端保存失败:",e.message); }
+  }catch(e){ _hasUnpushedChanges = true; console.warn("云端保存失败:",e.message); }
 }
 
-let _cloudTimer = null, _loading = false, _pendingSync = false;
+let _cloudTimer = null, _loading = false, _pendingSync = false, _hasUnpushedChanges = false;
 function scheduleCloudSync(){
   if(_loading){ _pendingSync = true; return; }
   _pendingSync = false;
@@ -1055,15 +1058,22 @@ async function loadFromCloud(){
 
   // 合并到内存（不触发云端回推）
   let hasData = false;
-  if(ud.recs && Array.isArray(ud.recs)){ RECS = ud.recs; localStorage.setItem(STORAGE_KEY_RECS,JSON.stringify(RECS)); hasData = true; }
-  if(ud.rules && Array.isArray(ud.rules)){ RULES = ud.rules; localStorage.setItem(STORAGE_KEY_RULES,JSON.stringify(RULES)); }
-  // ★ 合并 _detached：保留本地新删的记录，不被云端旧数据覆盖
-  if(ud.detached && Array.isArray(ud.detached)){
-    const merged = new Set(_detached);
-    ud.detached.forEach(k => merged.add(k));
-    _detached = [...merged];
-    localStorage.setItem(DETACHED_KEY,JSON.stringify(_detached));
+  // ★ 本地有未推送的修改时，跳过 RECS/RULES/_detached 覆写，防止云端旧数据覆盖本地新改动
+  if(_hasUnpushedChanges){
+    console.log("⏸️ 本地有未推送修改，跳过云端 RECS/RULES 覆写");
+    hasData = true; // 不覆写也不影响后续 refresh
+  } else {
+    if(ud.recs && Array.isArray(ud.recs)){ RECS = ud.recs; localStorage.setItem(STORAGE_KEY_RECS,JSON.stringify(RECS)); hasData = true; }
+    if(ud.rules && Array.isArray(ud.rules)){ RULES = ud.rules; localStorage.setItem(STORAGE_KEY_RULES,JSON.stringify(RULES)); }
+    // ★ 合并 _detached：保留本地新删的记录，不被云端旧数据覆盖
+    if(ud.detached && Array.isArray(ud.detached)){
+      const merged = new Set(_detached);
+      ud.detached.forEach(k => merged.add(k));
+      _detached = [...merged];
+      localStorage.setItem(DETACHED_KEY,JSON.stringify(_detached));
+    }
   }
+  // 以下字段无频繁写入，正常加载
   if(ud.student_list && Array.isArray(ud.student_list)){ STUS = ud.student_list; localStorage.setItem(STUDENT_LIST_KEY,JSON.stringify(STUS)); }
   if(ud.salary_history && typeof ud.salary_history==="object"){ localStorage.setItem(SALARY_KEY,JSON.stringify(ud.salary_history)); }
   if(ud.salary_config && typeof ud.salary_config==="object"){ localStorage.setItem(SALARY_CFG_KEY,JSON.stringify(ud.salary_config)); }
@@ -1133,6 +1143,7 @@ function loadDetached(){
 }
 function saveDetached(){
   localStorage.setItem(DETACHED_KEY, JSON.stringify(_detached));
+  _hasUnpushedChanges = true;
   scheduleCloudSync();
 }
 
