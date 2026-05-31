@@ -1024,9 +1024,10 @@ async function pushToCloud(){
   }catch(e){ console.warn("云端保存失败:",e.message); }
 }
 
-let _cloudTimer = null, _loading = false;
+let _cloudTimer = null, _loading = false, _pendingSync = false;
 function scheduleCloudSync(){
-  if(_loading) return;
+  if(_loading){ _pendingSync = true; return; }
+  _pendingSync = false;
   clearTimeout(_cloudTimer);
   _cloudTimer = setTimeout(pushToCloud, 800);
 }
@@ -1035,10 +1036,11 @@ function scheduleCloudSync(){
 async function loadFromCloud(){
   if(!cloudReady) return false;
   _loading = true;
+  try {
   const user = getCurrentUser();
-  if(!user){ _loading = false; return false; }
+  if(!user){ return false; }
   const cloud = await fetchFromCloudRaw();
-  if(!cloud || !cloud[user]){ _loading = false; return false; }
+  if(!cloud || !cloud[user]){ return false; }
   const ud = cloud[user];
 
   // ═══ 后台迁移：旧版 "一对多" → "初中一对多" ═══
@@ -1055,15 +1057,25 @@ async function loadFromCloud(){
   let hasData = false;
   if(ud.recs && Array.isArray(ud.recs)){ RECS = ud.recs; localStorage.setItem(STORAGE_KEY_RECS,JSON.stringify(RECS)); hasData = true; }
   if(ud.rules && Array.isArray(ud.rules)){ RULES = ud.rules; localStorage.setItem(STORAGE_KEY_RULES,JSON.stringify(RULES)); }
-  if(ud.detached && Array.isArray(ud.detached)){ _detached = ud.detached; localStorage.setItem(DETACHED_KEY,JSON.stringify(_detached)); }
+  // ★ 合并 _detached：保留本地新删的记录，不被云端旧数据覆盖
+  if(ud.detached && Array.isArray(ud.detached)){
+    const merged = new Set(_detached);
+    ud.detached.forEach(k => merged.add(k));
+    _detached = [...merged];
+    localStorage.setItem(DETACHED_KEY,JSON.stringify(_detached));
+  }
   if(ud.student_list && Array.isArray(ud.student_list)){ STUS = ud.student_list; localStorage.setItem(STUDENT_LIST_KEY,JSON.stringify(STUS)); }
   if(ud.salary_history && typeof ud.salary_history==="object"){ localStorage.setItem(SALARY_KEY,JSON.stringify(ud.salary_history)); }
   if(ud.salary_config && typeof ud.salary_config==="object"){ localStorage.setItem(SALARY_CFG_KEY,JSON.stringify(ud.salary_config)); }
   if(ud.overtime && Array.isArray(ud.overtime)){ localStorage.setItem(OT_KEY,JSON.stringify(ud.overtime)); }
   if(ud.txrest && Array.isArray(ud.txrest)){ localStorage.setItem(TX_KEY,JSON.stringify(ud.txrest)); }
-  _loading = false;
   if(hasData) console.log("☁️ 从云端加载了「"+user+"」的数据");
   return hasData;
+  } finally {
+    _loading = false;
+    // 如果加载期间有本地改动被阻塞，现在补推
+    if(_pendingSync) scheduleCloudSync();
+  }
 }
 
 // ══════════════════════════════
