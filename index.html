@@ -2306,8 +2306,7 @@ function renderTierMgr(){
 let editingTierId = null;
 function openTierEdit(tid){
   editingTierId = tid || null;
-  const title = document.getElementById("tier-edit-title");
-  title.textContent = tid ? "编辑分档" : "新建分档";
+  document.getElementById("tier-edit-title").textContent = tid ? "编辑分档" : "新建分档";
   const body = document.getElementById("tier-edit-body");
 
   // 加载现有数据
@@ -2318,64 +2317,129 @@ function openTierEdit(tid){
     if(found) tier = found;
   }
 
+  // 将 rates 展平为规则列表
+  window._etRules = [];
+  ["初中一对一","高中一对一"].forEach(type=>{
+    const r = tier.rates[type]||{};
+    [2,1.5].forEach(dur=>{ if(r[dur]) window._etRules.push({type,dur,hc:null,fee:r[dur]}); });
+  });
+  ["初中一对多","高中一对多"].forEach(type=>{
+    const r = tier.rates[type]||{};
+    [1,2,3,4].forEach(hc=>{ if(r[hc]) window._etRules.push({type,dur:2,hc,fee:r[hc]}); });
+    if(r[1.5]) window._etRules.push({type,dur:1.5,hc:null,fee:r[1.5]});
+  });
+
   let html = '<div class="frow full"><div class="fg"><label>分档名称</label><input type="text" id="et-name" value="'+escHtml(tier.name)+'" placeholder="如：标准课时费"></div></div>';
-  html += '<div style="font-size:12px;color:#888;margin:8px 0 4px">费率设置（单位：元，留空表示不适用）</div>';
 
-  // 一对一类型：只需时长费率
-  ["初中一对一","高中一对一"].forEach(ct=>{
-    const r = tier.rates[ct]||{};
-    html += '<div style="margin-top:12px;font-size:13px;font-weight:600;color:#555">'+ct+'</div>';
-    html += '<div style="display:flex;gap:12px;margin-top:4px">';
-    html += '<label style="font-size:12px">2小时 <input type="number" class="et-rate" data-ct="'+ct+'" data-key="2" value="'+(r[2]||"")+'" style="width:74px;padding:4px 6px" placeholder="-"></label>';
-    html += '<label style="font-size:12px">1.5小时 <input type="number" class="et-rate" data-ct="'+ct+'" data-key="1.5" value="'+(r[1.5]||"")+'" style="width:74px;padding:4px 6px" placeholder="-"></label>';
-    html += '</div>';
-  });
+  // 已有规则列表
+  html += '<div id="et-rules-list" style="margin-top:12px;max-height:180px;overflow-y:auto"></div>';
 
-  // 一对多类型：人数阶梯费率（2小时课时），1.5小时单独设置
-  ["初中一对多","高中一对多"].forEach(ct=>{
-    const r = tier.rates[ct]||{};
-    html += '<div style="margin-top:12px;font-size:13px;font-weight:600;color:#555">'+ct+'</div>';
-    html += '<div style="display:flex;gap:12px;margin-top:4px;flex-wrap:wrap;align-items:center">';
-    html += '<label style="font-size:12px">1.5小时 <input type="number" class="et-rate" data-ct="'+ct+'" data-key="1.5" value="'+(r[1.5]||"")+'" style="width:68px;padding:4px 6px" placeholder="-"></label>';
-    html += '<span style="color:#aaa;font-size:11px">| 2小时课时 — </span>';
-    html += '<label style="font-size:12px">1人 <input type="number" class="et-rate" data-ct="'+ct+'" data-key="1" value="'+(r[1]||"")+'" style="width:68px;padding:4px 6px" placeholder="-"></label>';
-    html += '<label style="font-size:12px">2人 <input type="number" class="et-rate" data-ct="'+ct+'" data-key="2" value="'+(r[2]||"")+'" style="width:68px;padding:4px 6px" placeholder="-"></label>';
-    html += '<label style="font-size:12px">3人 <input type="number" class="et-rate" data-ct="'+ct+'" data-key="3" value="'+(r[3]||"")+'" style="width:68px;padding:4px 6px" placeholder="-"></label>';
-    html += '<label style="font-size:12px">4人 <input type="number" class="et-rate" data-ct="'+ct+'" data-key="4" value="'+(r[4]||"")+'" style="width:68px;padding:4px 6px" placeholder="-"></label>';
-    html += '</div>';
-  });
+  // 添加新规则
+  html += '<div style="border-top:1px solid #eee;margin-top:12px;padding-top:10px">';
+  html += '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">';
+
+  // 课程类型
+  html += '<select id="et-add-type" style="padding:4px 6px;border:1px solid #ddd;border-radius:4px;font-size:12px" onchange="onEtTypeChange()">';
+  html += '<option value="初中一对一">初中一对一</option><option value="高中一对一">高中一对一</option>';
+  html += '<option value="初中一对多">初中一对多</option><option value="高中一对多">高中一对多</option>';
+  html += '</select>';
+
+  // 时长（一对一）/ 人数（一对多）
+  html += '<select id="et-add-param" style="padding:4px 6px;border:1px solid #ddd;border-radius:4px;font-size:12px"></select>';
+
+  html += '<input type="number" id="et-add-fee" placeholder="课时费" style="width:72px;padding:4px 6px;font-size:12px;border:1px solid #ddd;border-radius:4px">';
+  html += '<button class="btn btn-primary" style="font-size:12px;padding:4px 12px" onclick="etAddRule()">添加</button>';
+  html += '</div></div>';
+
   html += '<div style="margin-top:16px;text-align:right">';
-  html += '<button class="btn btn-ghost" onclick="bgClose(\'tier-edit-modal\')">取消</button>';
-  html += '<button class="btn btn-primary" onclick="saveTier()">保存</button>';
+  html += '<button class="btn btn-ghost" onclick="bgClose(\'tier-edit-modal\')">取消</button> ';
+  html += '<button class="btn btn-primary" onclick="saveTierSimple()">保存</button>';
   html += '</div>';
 
   body.innerHTML = html;
+  onEtTypeChange();  // 初始化参数下拉框
+  etRenderRules();
   document.getElementById("tier-edit-modal").classList.add("open");
 }
 
-function saveTier(){
+// 根据课程类型切换参数下拉框（时长 or 人数）
+function onEtTypeChange(){
+  const type = document.getElementById("et-add-type").value;
+  const sel = document.getElementById("et-add-param");
+  sel.innerHTML = "";
+  if(type==="初中一对一"||type==="高中一对一"){
+    sel.innerHTML = '<option value="2">2小时</option><option value="1.5">1.5小时</option>';
+  } else {
+    sel.innerHTML = '<option value="1">1人</option><option value="2">2人</option><option value="3">3人</option><option value="4">4人</option>';
+  }
+  document.getElementById("et-add-fee").value = "";
+}
+
+// 渲染已有规则列表
+function etRenderRules(){
+  const list = document.getElementById("et-rules-list");
+  if(!list) return;
+  if(!window._etRules||!window._etRules.length){
+    list.innerHTML = '<div style="color:#aaa;font-size:12px;padding:6px 0">暂无规则，请在下方添加</div>';
+    return;
+  }
+  let h = "";
+  window._etRules.forEach((r,i)=>{
+    let desc = r.type;
+    if(r.hc) desc += " "+r.hc+"人";
+    else desc += " "+r.dur+"小时";
+    desc += " → ¥"+r.fee;
+    h += '<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid #f5f5f5;font-size:12px"><span>'+desc+'</span><button onclick="etDelRule('+i+')" style="background:none;border:none;color:#D15050;cursor:pointer;font-size:14px">×</button></div>';
+  });
+  list.innerHTML = h;
+}
+
+// 添加一条规则
+function etAddRule(){
+  const type = document.getElementById("et-add-type").value;
+  const param = parseFloat(document.getElementById("et-add-param").value);
+  const fee = parseFloat(document.getElementById("et-add-fee").value);
+  if(!fee||fee<=0){ alert("请填写课时费"); return; }
+
+  if(type==="初中一对一"||type==="高中一对一"){
+    // 一对一：param=时长
+    // 同一类型+时长不重复
+    const exist = window._etRules.findIndex(r=>r.type===type&&r.dur===param);
+    if(exist>-1) window._etRules[exist].fee = fee;
+    else window._etRules.push({type,dur:param,hc:null,fee});
+  } else {
+    // 一对多：param=人数
+    const exist = window._etRules.findIndex(r=>r.type===type&&r.hc===param);
+    if(exist>-1) window._etRules[exist].fee = fee;
+    else window._etRules.push({type,dur:2,hc:param,fee});
+  }
+  document.getElementById("et-add-fee").value = "";
+  etRenderRules();
+}
+
+// 删除一条规则
+function etDelRule(idx){
+  window._etRules.splice(idx,1);
+  etRenderRules();
+}
+
+function saveTierSimple(){
   const name = document.getElementById("et-name").value.trim();
   if(!name){ alert("请输入分档名称"); return; }
+  if(!window._etRules||!window._etRules.length){ alert("请至少添加一条规则"); return; }
 
+  // 将 _etRules 转回 rates 结构
   const rates = {"初中一对一":{},"高中一对一":{},"初中一对多":{},"高中一对多":{}};
-  document.querySelectorAll(".et-rate").forEach(el=>{
-    const ct = el.dataset.ct;
-    const key = parseFloat(el.dataset.key);
-    const val = parseFloat(el.value);
-    if(!isNaN(val) && val>0) rates[ct][key] = val;
+  window._etRules.forEach(r=>{
+    if(!rates[r.type]) rates[r.type] = {};
+    if(r.hc) rates[r.type][r.hc] = r.fee;
+    else rates[r.type][r.dur] = r.fee;
   });
 
-  // 验证至少填了一个费率
-  const hasRate = Object.values(rates).some(o=>Object.keys(o).length>0);
-  if(!hasRate){ alert("请至少填写一个费率"); return; }
-
   const tiers = loadFeeTiers();
-
   if(editingTierId){
     const idx = tiers.findIndex(t=>t.id===editingTierId);
-    if(idx>-1){
-      tiers[idx] = {id:editingTierId, name, rates};
-    }
+    if(idx>-1) tiers[idx] = {id:editingTierId, name, rates};
   } else {
     const id = "t_"+Date.now()+"_"+Math.floor(Math.random()*1e9);
     tiers.push({id, name, rates});
@@ -2383,9 +2447,9 @@ function saveTier(){
 
   saveFeeTiers(tiers);
   editingTierId = null;
+  window._etRules = null;
   bgClose("tier-edit-modal");
   renderTierMgr();
-  // 刷新当前生效分档
   if(tiers.length && !currentFeeTierId) currentFeeTierId = tiers[0].id;
 }
 
