@@ -615,7 +615,7 @@ body{font-family:"PingFang SC","Microsoft YaHei",sans-serif;background:#f5f4f0;c
         <div class="fg"><label>截止日期（可选）</label><input type="date" id="i-rule-end"></div>
       </div>
       <div class="frow">
-        <div class="fg"><label>课程类型</label><select id="i-type" onchange="calcPreview()"><option value="初中一对一">初中一对一</option><option value="高中一对一">高中一对一</option><option value="初中一对多">初中一对多</option><option value="高中一对多">高中一对多</option></select></div>
+        <div class="fg"><label>课程类型</label><select id="i-type" onchange="calcPreview()"></select></div>
         <div class="fg"><label>课时时长</label><select id="i-dur" onchange="calcPreview()"><option value="2">2小时</option><option value="1.5">1.5小时</option></select></div>
       </div>
       <div class="frow" id="fee-tier-row" style="display:none">
@@ -1176,11 +1176,31 @@ function calcCellH() {
 
 let CELL_H = 60; // 初始值，待 DOM ready 后更新
 const DAY_NAMES = ["周一","周二","周三","周四","周五","周六","周日"];
+const ALL_GRADES = ["小学","初一","初二","初三","高一","高二","高三"];
+const ALL_TYPES = ALL_GRADES.flatMap(g=>[g+"一对一", g+"一对多"]);
+// 每一年级对应一个色系：小学-紫, 初一-蓝, 初二-青, 初三-绿, 高一-橙, 高二-红, 高三-玫红
+const GRADE_HUES = [270,210,190,160,30,10,350];
+function typeColor(type){
+  const idx = ALL_TYPES.indexOf(type);
+  if(idx<0) return "#4A90D9";
+  const gi = idx%7, isMulti = idx>=7;
+  const h = GRADE_HUES[gi];
+  return `hsl(${h},${isMulti?60:55}%,${isMulti?42:48}%)`;
+}
+function typeColorBg(type){
+  const idx = ALL_TYPES.indexOf(type);
+  if(idx<0) return "#dbe9f8";
+  const gi = idx%7, isMulti = idx>=7;
+  const h = GRADE_HUES[gi];
+  return `hsl(${h},${isMulti?45:40}%,92%)`;
+}
 const FEE_RULES = {
-  "初中一对一":{2:130,1.5:97.5},
-  "高中一对一":{2:160,1.5:120},
-  "初中一对多":{1:130,2:160,3:190,4:210},
-  "高中一对多":{1:160,2:190,3:220,4:240}}
+  "小学一对一":{2:100,1.5:75},
+  "初一一对一":{2:130,1.5:97.5}, "初二一对一":{2:130,1.5:97.5}, "初三一对一":{2:130,1.5:97.5},
+  "高一一对一":{2:160,1.5:120}, "高二一对一":{2:160,1.5:120}, "高三一对一":{2:160,1.5:120},
+  "小学一对多":{1:100,2:130,3:160,4:180},
+  "初一一对多":{1:130,2:160,3:190,4:210}, "初二一对多":{1:130,2:160,3:190,4:210}, "初三一对多":{1:130,2:160,3:190,4:210},
+  "高一一对多":{1:160,2:190,3:220,4:240}, "高二一对多":{1:160,2:190,3:220,4:240}, "高三一对多":{1:160,2:190,3:220,4:240}}
 const DEFAULT_STUS = [
   {name:"吴彦希",grade:"junior"},{name:"管晨皓",grade:"junior"},{name:"俞跃",grade:"junior"},
   {name:"曹柯",grade:"junior"},{name:"林威宇",grade:"junior"},{name:"林允儿",grade:"junior"},
@@ -1215,21 +1235,12 @@ function saveDetached(){
 // ══════════════════════════════
 function calcFee(type,dur,cnt){
   const rules = getActiveFeeRules();
-  if(type==="初中一对一") return (rules["初中一对一"]||{})[dur]||0;
-  if(type==="高中一对一") return (rules["高中一对一"]||{})[dur]||0;
-  if(type==="初中一对多") {
-    const m = rules["初中一对多"];
-    if(!m) return 0;
-    if(dur===1.5) return (m[1.5]!==undefined)?m[1.5]:97.5;
-    return cnt>0?(m[Math.min(cnt,4)]||0):0;
-  }
-  if(type==="高中一对多") {
-    const m = rules["高中一对多"];
-    if(!m) return 0;
-    if(dur===1.5) return (m[1.5]!==undefined)?m[1.5]:120;
-    return cnt>0?(m[Math.min(cnt,4)]||0):0;
-  }
-  return 0;
+  const m = rules[type];
+  if(!m) return 0;
+  if(type.includes("一对一")) return m[dur]||0;
+  // 一对多
+  if(dur===1.5) return m[1.5]!==undefined ? m[1.5] : 0;
+  return cnt>0 ? (m[Math.min(cnt,4)]||0) : 0;
 }
 function p2(n){return String(n).padStart(2,"0")}
 function dkey(d){return `${d.getFullYear()}-${p2(d.getMonth()+1)}-${p2(d.getDate())}`}
@@ -1367,12 +1378,12 @@ function renderCal(){
     if(!col) return;
     const topPx = (sh-HOUR_START)*CELL_H + sm/60*CELL_H;
     const heightPx = Math.max(r.duration*CELL_H-4, 24);
-    const typeClass = r.type==="高中一对一"?"cs":r.type==="初中一对多"?"cm":r.type==="高中一对多"?"ch":"cj";
+    const bgColor = typeColor(r.type);
     const stuText = r.students.join("、");
     const isFromRule = !!r.ruleId;
     const block = document.createElement("div");
-    block.className = `cb ${typeClass}${isFromRule?" from-rule":""}`;
-    block.style.top = topPx+"px"; block.style.height = heightPx+"px";
+    block.className = `cb${isFromRule?" from-rule":""}`;
+    block.style.cssText = `top:${topPx}px;height:${heightPx}px;background:${bgColor};color:#fff`;
     block.innerHTML = `<div class="cb-time">${r.startTime}–${endTime(r.startTime,r.duration)} (${r.duration}h)</div><div class="cb-stu">${stuText}</div>${heightPx>36?`<div class="cb-fee">¥${r.fee}</div>`:""}`;
     block.dataset.recId = r.id;
     block.onclick = (e)=>{ e.stopPropagation(); if(block._wasDragged){ block._wasDragged=false; return; } openEdit(r.id); };
@@ -1405,7 +1416,7 @@ function openAdd(){
   document.getElementById("rule-warn").style.display="none";
   document.getElementById("i-date").value=dkey(new Date());
   document.getElementById("i-start").value="";
-  document.getElementById("i-type").value="初中一对一";
+  document.getElementById("i-type").value="初一一对一";
   document.getElementById("i-dur").value="2";
   document.getElementById("i-note").value="";
   buildStuBox([]); calcPreview();
@@ -1426,7 +1437,7 @@ function openAddRule(){
   document.getElementById("i-rule-start").value="";
   document.getElementById("i-rule-end").value="";
   document.getElementById("i-start").value="";
-  document.getElementById("i-type").value="初中一对一";
+  document.getElementById("i-type").value="初一一对一";
   document.getElementById("i-dur").value="2";
   document.getElementById("i-note").value="";
   document.getElementById("rule-warn").style.display="none";
@@ -1471,7 +1482,7 @@ function onSlotClick(date,hour,e){
   document.getElementById("rule-warn").style.display="none";
   document.getElementById("i-date").value=date;
   document.getElementById("i-start").value=`${p2(hour)}:00`;
-  document.getElementById("i-type").value="初中一对一";
+  document.getElementById("i-type").value="初一一对一";
   document.getElementById("i-dur").value="2";
   document.getElementById("i-note").value="";
   buildStuBox([]); calcPreview();
@@ -1559,7 +1570,7 @@ function calcPreview(){
   const cnt=getChecked().length;
   const fee=calcFee(type,dur,cnt);
   document.getElementById("fee-amt").textContent="¥"+fee;
-  document.getElementById("fee-rule").textContent=(type==="初中一对多"||type==="高中一对多")?`${cnt}人 → ${fee}元`:`${dur}h → ${fee}元`;
+  document.getElementById("fee-rule").textContent=type.includes("一对多")?`${cnt}人 → ${fee}元`:`${dur}h → ${fee}元`;
 }
 
 async function saveRecord(){
@@ -1685,12 +1696,13 @@ function renderList(){
   let tf=0,th=0,ts=0;
   tb.innerHTML=f.map(r=>{
     tf+=r.fee;th+=r.duration;ts+=r.students.length;
-    const tc=r.type==="高中一对一"?"bs":r.type==="初中一对多"?"bm":r.type==="高中一对多"?"bh":"bj";
-    const sb=r.students.map(s=>{ const info=STUS.find(x=>x.name===s); return `<span class="badge ${info&&info.grade==="senior"?"bs":"bj"}">${s}</span>`; }).join("");
+    const tc = typeColorBg(r.type);
+    const tcFg = typeColor(r.type);
+    const sb=r.students.map(s=>{ const info=STUS.find(x=>x.name===s); return `<span class="badge" style="background:${info&&info.grade==="senior"?typeColorBg("高三一对一"):typeColorBg("初一一对一")};color:${info&&info.grade==="senior"?typeColor("高三一对一"):typeColor("初一一对一")};border:1px solid ${info&&info.grade==="senior"?typeColor("高三一对一"):typeColor("初一一对一")}44">${s}</span>`; }).join("");
     const [yy,mm,dd]=r.date.split("-");
     const timeCell=r.startTime?`<span style="white-space:nowrap;color:#888">${r.startTime}</span>`:`<span style="white-space:nowrap;color:#c0392b;font-size:11px;background:#fdf2f2;padding:1px 6px;border-radius:4px;border:1px solid #f5c6c6">未排课</span>`;
     const ruleTag=r.ruleId?'<span class="rule-tag">规则</span>':"";
-    return `<tr><td style="white-space:nowrap">${yy}年${+mm}月${+dd}日</td><td>${timeCell}</td><td><span class="badge ${tc}">${r.type}</span>${ruleTag}</td><td>${r.duration}h</td><td>${sb}</td><td style="text-align:center">${r.students.length}</td><td class="fee-val">¥${r.fee}</td><td style="color:#888;font-size:12px">${r.note||"—"}</td><td style="text-align:center;white-space:nowrap"><button class="btn-edit-sm" onclick="openEdit('${r.id}')">编辑</button><button class="btn-danger-sm" onclick="delR('${r.id}')" style="margin-left:4px">删除</button></td></tr>`;
+    return `<tr><td style="white-space:nowrap">${yy}年${+mm}月${+dd}日</td><td>${timeCell}</td><td><span class="badge" style="background:${tc};color:${tcFg};border:1px solid ${tcFg}44">${r.type}</span>${ruleTag}</td><td>${r.duration}h</td><td>${sb}</td><td style="text-align:center">${r.students.length}</td><td class="fee-val">¥${r.fee}</td><td style="color:#888;font-size:12px">${r.note||"—"}</td><td style="text-align:center;white-space:nowrap"><button class="btn-edit-sm" onclick="openEdit('${r.id}')">编辑</button><button class="btn-danger-sm" onclick="delR('${r.id}')" style="margin-left:4px">删除</button></td></tr>`;
   }).join("");
   document.getElementById("s-cnt").textContent=f.length;
   document.getElementById("s-hrs").textContent=th;
@@ -2136,8 +2148,7 @@ function getDragTooltip(){
   return dragTooltip;
 }
 function createGhost(block, rec){
-  const typeColors = {"初中一对一":"#4A90D9","高中一对一":"#D9534A","初中一对多":"#3BA99C","高中一对多":"#E67E22"};
-  const bgColor = typeColors[rec.type]||"#4A90D9";
+  const bgColor = typeColor(rec.type);
   const h=block.getBoundingClientRect().height;
   const g=document.createElement("div");
   g.style.cssText=`position:fixed;z-index:500;pointer-events:none;border-radius:6px;padding:4px 6px;overflow:hidden;box-shadow:0 6px 20px rgba(0,0,0,.25);background:${bgColor};color:#fff;opacity:.9;`;
@@ -2224,6 +2235,11 @@ function initSelects(){
   });
   document.getElementById("lm").value=now.getMonth()+1;
   document.getElementById("em").value=now.getMonth()+1;
+  // 动态填充课程类型下拉框
+  const tsel = document.getElementById("i-type");
+  if(tsel){
+    tsel.innerHTML = ALL_TYPES.map(t=>`<option value="${t}">${t}</option>`).join("");
+  }
 }
 
 async function initApp(){
@@ -2280,17 +2296,18 @@ function renderTierMgr(){
   if(!tiers.length){
     html += '<div style="color:#aaa;text-align:center;padding:20px">暂无分档，点击下方按钮创建</div>';
   } else {
-    html += '<table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr style="border-bottom:1px solid #e0e0e0"><th style="text-align:left;padding:8px 4px">分档名称</th><th style="text-align:left;padding:8px 4px">初中一对一 2h</th><th style="text-align:left;padding:8px 4px">初中一对多 2人</th><th style="text-align:left;padding:8px 4px">高中一对多 2人</th><th style="width:100px;padding:8px 4px"></th></tr></thead><tbody>';
+    html += '<table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr style="border-bottom:1px solid #e0e0e0"><th style="text-align:left;padding:8px 4px">分档名称</th><th style="text-align:left;padding:8px 4px">规则数</th><th style="text-align:left;padding:8px 4px">示例</th><th style="width:100px;padding:8px 4px"></th></tr></thead><tbody>';
     tiers.forEach((t,i)=>{
       const r = t.rates;
-      const a1 = (r["初中一对一"]||{})[2]||"-";
-      const a2 = (r["初中一对多"]||{})[2]||"-";
-      const a3 = (r["高中一对多"]||{})[2]||"-";
+      let ruleCount = 0, sample = "";
+      ALL_TYPES.forEach(type=>{
+        const m = r[type]||{};
+        Object.keys(m).forEach(k=>{ ruleCount++; if(!sample) sample = type+(m[k]!==undefined?" ¥"+m[k]:""); });
+      });
       html += `<tr style="border-bottom:1px solid #f0f0f0">
         <td style="padding:8px 4px;font-weight:600">${t.name}</td>
-        <td style="padding:8px 4px">¥${a1}</td>
-        <td style="padding:8px 4px">¥${a2}</td>
-        <td style="padding:8px 4px">¥${a3}</td>
+        <td style="padding:8px 4px">${ruleCount}条</td>
+        <td style="padding:8px 4px;color:#888;font-size:12px">${sample||"-"}</td>
         <td style="padding:8px 4px;text-align:right">
           <button class="btn btn-ghost" style="font-size:11px;padding:3px 8px" onclick="openTierEdit('${t.id}')">编辑</button>
           <button class="btn btn-ghost" style="font-size:11px;padding:3px 8px;color:#D15050" onclick="deleteTier('${t.id}')">删除</button>
@@ -2310,7 +2327,8 @@ function openTierEdit(tid){
   const body = document.getElementById("tier-edit-body");
 
   // 加载现有数据
-  let tier = {id:"",name:"",rates:{"初中一对一":{},"高中一对一":{},"初中一对多":{},"高中一对多":{}}};
+  let tier = {id:"",name:"",rates:{}};
+  ALL_TYPES.forEach(t=>{ tier.rates[t] = {}; });
   if(tid){
     const tiers = loadFeeTiers();
     const found = tiers.find(t=>t.id===tid);
@@ -2319,14 +2337,14 @@ function openTierEdit(tid){
 
   // 将 rates 展平为规则列表
   window._etRules = [];
-  ["初中一对一","高中一对一"].forEach(type=>{
+  ALL_TYPES.forEach(type=>{
     const r = tier.rates[type]||{};
-    [2,1.5].forEach(dur=>{ if(r[dur]) window._etRules.push({type,dur,hc:null,fee:r[dur]}); });
-  });
-  ["初中一对多","高中一对多"].forEach(type=>{
-    const r = tier.rates[type]||{};
-    [1,2,3,4].forEach(hc=>{ if(r[hc]) window._etRules.push({type,dur:2,hc,fee:r[hc]}); });
-    if(r[1.5]) window._etRules.push({type,dur:1.5,hc:null,fee:r[1.5]});
+    if(type.includes("一对一")){
+      [2,1.5].forEach(dur=>{ if(r[dur]) window._etRules.push({type,dur,hc:null,fee:r[dur]}); });
+    } else {
+      [1,2,3,4].forEach(hc=>{ if(r[hc]) window._etRules.push({type,dur:2,hc,fee:r[hc]}); });
+      if(r[1.5]) window._etRules.push({type,dur:1.5,hc:null,fee:r[1.5]});
+    }
   });
 
   let html = '<div class="frow full"><div class="fg"><label>分档名称</label><input type="text" id="et-name" value="'+escHtml(tier.name)+'" placeholder="如：标准课时费"></div></div>';
@@ -2340,8 +2358,7 @@ function openTierEdit(tid){
 
   // 课程类型
   html += '<select id="et-add-type" style="padding:4px 6px;border:1px solid #ddd;border-radius:4px;font-size:12px" onchange="onEtTypeChange()">';
-  html += '<option value="初中一对一">初中一对一</option><option value="高中一对一">高中一对一</option>';
-  html += '<option value="初中一对多">初中一对多</option><option value="高中一对多">高中一对多</option>';
+  ALL_TYPES.forEach(t=>{ html += `<option value="${t}">${t}</option>`; });
   html += '</select>';
 
   // 时长（一对一）/ 人数（一对多）
@@ -2367,7 +2384,7 @@ function onEtTypeChange(){
   const type = document.getElementById("et-add-type").value;
   const sel = document.getElementById("et-add-param");
   sel.innerHTML = "";
-  if(type==="初中一对一"||type==="高中一对一"){
+  if(type.includes("一对一")){
     sel.innerHTML = '<option value="2">2小时</option><option value="1.5">1.5小时</option>';
   } else {
     sel.innerHTML = '<option value="1">1人</option><option value="2">2人</option><option value="3">3人</option><option value="4">4人</option>';
@@ -2401,9 +2418,8 @@ function etAddRule(){
   const fee = parseFloat(document.getElementById("et-add-fee").value);
   if(!fee||fee<=0){ alert("请填写课时费"); return; }
 
-  if(type==="初中一对一"||type==="高中一对一"){
+  if(type.includes("一对一")){
     // 一对一：param=时长
-    // 同一类型+时长不重复
     const exist = window._etRules.findIndex(r=>r.type===type&&r.dur===param);
     if(exist>-1) window._etRules[exist].fee = fee;
     else window._etRules.push({type,dur:param,hc:null,fee});
@@ -2429,7 +2445,7 @@ function saveTierSimple(){
   if(!window._etRules||!window._etRules.length){ alert("请至少添加一条规则"); return; }
 
   // 将 _etRules 转回 rates 结构
-  const rates = {"初中一对一":{},"高中一对一":{},"初中一对多":{},"高中一对多":{}};
+  const rates = {};
   window._etRules.forEach(r=>{
     if(!rates[r.type]) rates[r.type] = {};
     if(r.hc) rates[r.type][r.hc] = r.fee;
