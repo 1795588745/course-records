@@ -796,8 +796,11 @@ function isLoggedIn(){
 
 // 迁移旧全局键数据到当前用户键下
 function migrateOldData(){
-  // 旧全局键 → 新按用户键
-  const map = [
+  const currentUser = getCurrentUser();
+  const isFang = currentUser === "方老师";
+
+  // ── 第1类：明确映射的旧全局键（知道对应哪个新键）──
+  const mappedKeys = [
     ["_klrecs", STORAGE_KEY_RECS],
     ["_klrules", STORAGE_KEY_RULES],
     ["_kldetached", DETACHED_KEY],
@@ -805,15 +808,37 @@ function migrateOldData(){
     ["salary_history", SALARY_KEY],
     ["salary_config", SALARY_CFG_KEY]
   ];
-  let migrated = false;
-  map.forEach(([oldKey, newKey]) => {
+
+  // ── 第2类：更早期的杂名旧键（不知道结构，只删不导）──
+  const strayKeys = ["RECS","RULES","records","rules","courses","courseRules",
+    "_recs","_rules","klrecs","klrules","课程记录","排课规则",
+    "course_records","course_rules","schedule_recs","schedule_rules"];
+
+  let migrated = false, cleaned = false;
+
+  // 处理映射类旧键
+  mappedKeys.forEach(([oldKey, newKey]) => {
     const oldVal = localStorage.getItem(oldKey);
-    if(oldVal && !localStorage.getItem(newKey)){
+    if(!oldVal) return;
+    // 只迁移到方老师名下
+    if(isFang && !localStorage.getItem(newKey)){
       localStorage.setItem(newKey, oldVal);
       migrated = true;
     }
+    localStorage.removeItem(oldKey);
+    cleaned = true;
   });
-  if(migrated) console.log("📦 已将旧数据迁移到用户「"+getCurrentUser()+"」名下");
+
+  // 清除杂名旧键（不导入，只删除，避免串号）
+  strayKeys.forEach(k => {
+    if(localStorage.getItem(k) !== null){
+      localStorage.removeItem(k);
+      cleaned = true;
+    }
+  });
+
+  if(migrated) console.log("📦 已将旧数据迁移到用户「方老师」名下");
+  else if(cleaned) console.log("🧹 已清理旧版全局键（防止新账号串数据）");
 }
 
 function showApp(){
@@ -858,6 +883,45 @@ function showLogin(){
   document.getElementById("login-mode-login").style.display = "";
   document.getElementById("login-err").textContent = "";
   document.getElementById("login-user").focus();
+}
+
+// ═══ 强力清理：删除所有不属于当前用户的旧版全局键 ═══
+function cleanupAllOldKeys(){
+  const user = getCurrentUser();
+  if(!user) return;
+  // 所有已知的旧版全局键名（不含 u_ 前缀的）
+  const oldKeys = [
+    "_klrecs","_klrules","_kldetached",
+    "RECS","RULES","records","rules","courses","courseRules",
+    "_recs","_rules","klrecs","klrules","课程记录","排课规则",
+    "course_records","course_rules","schedule_recs","schedule_rules",
+    "student_list","salary_history","salary_config",
+    "overtime","txrest","fee_tiers"
+  ];
+  let cleaned = 0;
+  oldKeys.forEach(k => {
+    if(localStorage.getItem(k) !== null){
+      console.warn("🧹 删除旧全局键: "+k);
+      localStorage.removeItem(k);
+      cleaned++;
+    }
+  });
+  // 扫描所有 localStorage 键，报告异常键
+  for(let i=0; i<localStorage.length; i++){
+    const key = localStorage.key(i);
+    // 跳过当前用户的键
+    if(key.startsWith("u_"+user+"_")) continue;
+    // 跳过系统键
+    if(key.startsWith("sb_") || key === "_auth_user" || key.startsWith("course-records_")) continue;
+    // 其他 u_ 开头的键是其他用户的，保留（不删）
+    if(key.startsWith("u_")){
+      console.log("ℹ️ 检测到其他用户数据键: "+key+" （已保留）");
+      continue;
+    }
+    // 剩余的未知键，记录日志但不删（安全起见）
+    console.log("ℹ️ 未知 localStorage 键: "+key);
+  }
+  if(cleaned) console.log("🧹 共清理 "+cleaned+" 个旧全局键");
 }
 
 async function doRegister(){
@@ -960,32 +1024,37 @@ function saveRules(){
 
 // ── 数据恢复：扫描旧键名迁移数据 ──
 function recoverData(){
+  // ★ 只有方老师账号才允许恢复旧数据，防止串号
+  if(getCurrentUser() !== "方老师") return;
   let recovered = false;
 
   // 如果当前键已有数据，跳过恢复
   if(RECS.length > 0 && RULES.length > 0) return;
 
-  // 候选旧键名列表（按可能性排序）
+  // 已迁移的旧全局键（已在 migrateOldData 中处理，这里显式排除避免串号）
+  const migratedKeys = ["_klrecs","_klrules","_kldetached","student_list","salary_history","salary_config"];
+
+  // 候选旧键名列表 — 只扫描这些已知的旧键，不乱扫
   const candidateKeys = ["RECS","RULES","records","rules","courses","courseRules",
     "_recs","_rules","klrecs","klrules","课程记录","排课规则",
     "course_records","course_rules","schedule_recs","schedule_rules"];
 
-  for(let i = 0; i < localStorage.length; i++){
-    const key = localStorage.key(i);
-    if(!key || key === STORAGE_KEY_RECS || key === STORAGE_KEY_RULES) continue;
-    if(key.startsWith(DETACHED_KEY) || key.startsWith(STUDENT_LIST_KEY) ||
-       key.startsWith(SALARY_KEY) || key.startsWith("sb_") || key.startsWith("auth_")) continue;
-    // 跳过其他用户的隔离数据（u_ 前缀的键），避免数据串号
-    if(key.startsWith("u_")) continue;
+  for(const key of candidateKeys){
+    if(key === STORAGE_KEY_RECS || key === STORAGE_KEY_RULES) continue;
+    if(migratedKeys.includes(key)) continue;  // 跳过已迁移的旧键
+
+    const raw = localStorage.getItem(key);
+    if(!raw) continue;
 
     try {
-      const val = JSON.parse(localStorage.getItem(key));
+      const val = JSON.parse(raw);
       if(!Array.isArray(val) || val.length === 0) continue;
 
       // 判断是否为课程记录：有 date + startTime 字段
       if(!RECS.length && val.length > 0 && val[0].date && val[0].startTime && val[0].students){
         RECS = val;
         saveRecs();
+        localStorage.removeItem(key);  // 恢复后清除旧键
         recovered = true;
         console.log("✅ 从旧键 '"+key+"' 恢复了 "+RECS.length+" 条课程记录");
         continue;
@@ -995,6 +1064,7 @@ function recoverData(){
       if(!RULES.length && val.length > 0 && val[0].dayOfWeek !== undefined && val[0].startTime && val[0].students){
         RULES = val;
         saveRules();
+        localStorage.removeItem(key);  // 恢复后清除旧键
         recovered = true;
         console.log("✅ 从旧键 '"+key+"' 恢复了 "+RULES.length+" 条排课规则");
         continue;
@@ -1103,9 +1173,12 @@ async function loadFromCloud(){
   _loading = true;
   try {
   const user = getCurrentUser();
-  if(!user){ return false; }
+  if(!user){ console.log("☁️ loadFromCloud: 无用户，跳过"); return false; }
+  console.log("☁️ loadFromCloud: 正在为「"+user+"」加载云端数据...");
   const cloud = await fetchFromCloudRaw();
-  if(!cloud || !cloud[user]){ return false; }
+  if(!cloud){ console.log("☁️ loadFromCloud: 云端无数据"); return false; }
+  console.log("☁️ loadFromCloud: 云端已有用户: "+Object.keys(cloud).join(", "));
+  if(!cloud[user]){ console.log("☁️ loadFromCloud: 云端没有「"+user+"」的数据"); return false; }
   const ud = cloud[user];
 
   // ═══ 后台迁移：旧版 "一对多" → "初中一对多" ═══
@@ -1486,6 +1559,7 @@ function onSlotClick(date,hour,e){
   document.getElementById("i-dur").value="2";
   document.getElementById("i-note").value="";
   buildStuBox([]); calcPreview();
+  refreshTierSelect();
   document.getElementById("add-modal").classList.add("open");
 }
 
@@ -2034,6 +2108,8 @@ function archiveLastMonth(){
 
 function checkImportHistory(){
   const hist=getSalaryHistory(); if(Object.keys(hist).length>0) return;
+  // 硬编码工资历史仅限方老师账号，其他账号跳过
+  if(getCurrentUser()!=="方老师") return;
   const curYr=new Date().getFullYear(); const curMo=new Date().getMonth()+1;
   const knownData={
     [curYr+"-01"]:{fee:null, gross:7866.4, tax:0},
@@ -2244,12 +2320,25 @@ function initSelects(){
 
 async function initApp(){
   initSupabase();
-  STUS = JSON.parse(localStorage.getItem(STUDENT_LIST_KEY) || JSON.stringify(DEFAULT_STUS));
-  loadRecs(); loadRules(); loadDetached();
-  recoverData();  // 自动扫描旧键名恢复数据
-
+  const CU = getCurrentUser();
+  console.log("🚀 initApp() 开始，当前用户: "+CU);
+  // ★ 第一步：彻底清理所有旧版全局键（登录和注册都要走这里）
+  migrateOldData();
+  cleanupAllOldKeys();
+  // 重置所有全局数据，确保切换账号时不会串数据
+  RECS = []; RULES = []; STUS = []; _detached = []; currentFeeTierId = null;
+  console.log("🧹 内存数据已重置: RECS="+RECS.length+", RULES="+RULES.length);
+  // 新用户默认空列表，方老师使用预设学员
+  const defaultStus = CU==="方老师" ? JSON.stringify(DEFAULT_STUS) : "[]";
+  STUS = JSON.parse(localStorage.getItem(STUDENT_LIST_KEY) || defaultStus);
+  loadRecs(); console.log("📥 loadRecs 后 RECS="+RECS.length);
+  loadRules(); console.log("📥 loadRules 后 RULES="+RULES.length);
+  loadDetached();
+  recoverData();  // 自动扫描旧键名恢复数据（仅方老师，内部有检查）
   // 云端优先：有网就从云端拉数据覆盖本地
+  console.log("☁️ 准备从云端加载，cloudReady="+cloudReady);
   const cloudLoaded = await loadFromCloud();
+  console.log("☁️ 云端加载完成: cloudLoaded="+cloudLoaded+", RECS="+RECS.length);
 
   // 初始化分档：非方老师且无分档时给默认分档
   if(getCurrentUser()!=="方老师" && !loadFeeTiers().length){
