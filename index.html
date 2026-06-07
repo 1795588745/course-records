@@ -1167,6 +1167,16 @@ function scheduleCloudSync(){
   _cloudTimer = setTimeout(pushToCloud, 800);
 }
 
+// ═══ 清空当前用户所有本地数据（云端也删了该用户时使用）═══
+function clearLocalUserData(){
+  RECS = []; RULES = []; STUS = []; _detached = []; currentFeeTierId = null;
+  const keys = [STORAGE_KEY_RECS, STORAGE_KEY_RULES, DETACHED_KEY, STUDENT_LIST_KEY,
+    SALARY_KEY, SALARY_CFG_KEY, OT_KEY, TX_KEY, FEE_TIERS_KEY];
+  keys.forEach(k => { try { localStorage.removeItem(k); } catch(e){} });
+  saveRecs(); saveRules();
+  console.log("🧹 已清除本地「"+getCurrentUser()+"」的全部数据");
+}
+
 // 从云端加载当前用户数据到内存 + localStorage
 async function loadFromCloud(){
   if(!cloudReady) return false;
@@ -1176,9 +1186,13 @@ async function loadFromCloud(){
   if(!user){ console.log("☁️ loadFromCloud: 无用户，跳过"); return false; }
   console.log("☁️ loadFromCloud: 正在为「"+user+"」加载云端数据...");
   const cloud = await fetchFromCloudRaw();
-  if(!cloud){ console.log("☁️ loadFromCloud: 云端无数据"); return false; }
-  console.log("☁️ loadFromCloud: 云端已有用户: "+Object.keys(cloud).join(", "));
-  if(!cloud[user]){ console.log("☁️ loadFromCloud: 云端没有「"+user+"」的数据"); return false; }
+  console.log("☁️ loadFromCloud: 云端已有用户: "+(cloud?Object.keys(cloud).join(", "):"空"));
+  if(!cloud || !cloud[user]){
+    // ★ 云端没有此用户 → 清除本地残留旧数据，避免串号
+    console.log("☁️ loadFromCloud: 云端没有「"+user+"」的数据，清除本地残留");
+    clearLocalUserData();
+    return false;
+  }
   const ud = cloud[user];
 
   // ═══ 后台迁移：旧版 "一对多" → "初中一对多" ═══
