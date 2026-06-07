@@ -2100,12 +2100,16 @@ function deleteSalaryRecord(key){
 function round2(v){ return Math.round(v*100)/100; }
 
 function archiveLastMonth(){
+  // ★ 非方老师账号跳过自动归档，避免为新用户生成空工资记录
+  if(getCurrentUser()!=="方老师") return;
   const now=new Date(); const curYr=now.getFullYear(), curMo=now.getMonth()+1;
   if(curMo===1) return;
   const prevMo=curMo-1;
   const prevKey=curYr+"-"+(prevMo<10?"0":"")+prevMo;
   const hist=getSalaryHistory(); if(hist[prevKey]) return;
   const info=getMonthGross(curYr,prevMo);
+  // 如果上个月没有任何课程收入，不归档
+  if(!info.gross && !info.fee) return;
   const cfg=JSON.parse(localStorage.getItem(SALARY_CFG_KEY)||"{}");
   const threshold=cfg.threshold||5000; const gross=info.gross;
   let prevCumTax=0, prevCumTaxable=0;
