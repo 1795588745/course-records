@@ -886,6 +886,7 @@ function loadRecs(){
 function saveRecs(){
   localStorage.setItem(STORAGE_KEY_RECS, JSON.stringify(RECS));
   _hasUnpushedChanges = true;
+  localStorage.setItem("_cloud_state","dirty");
   scheduleCloudSync();
 }
 function loadRules(){
@@ -894,6 +895,7 @@ function loadRules(){
 function saveRules(){
   localStorage.setItem(STORAGE_KEY_RULES, JSON.stringify(RULES));
   _hasUnpushedChanges = true;
+  localStorage.setItem("_cloud_state","dirty");
   scheduleCloudSync();
 }
 
@@ -1023,6 +1025,7 @@ async function pushToCloud(){
       txrest: getTxList()
     };
     await sb.from("app_state").upsert({id:1, data:allData, updated_at:new Date().toISOString()});
+    localStorage.setItem("_cloud_state","synced");
     console.log("☁️ 已同步「"+user+"」到云端");
   }catch(e){ _hasUnpushedChanges = true; console.warn("云端保存失败:",e.message); }
 }
@@ -1059,9 +1062,12 @@ async function loadFromCloud(){
   // 合并到内存（不触发云端回推）
   let hasData = false;
   // ★ 本地有未推送的修改时，跳过 RECS/RULES/_detached 覆写，防止云端旧数据覆盖本地新改动
-  if(_hasUnpushedChanges){
+  const dirtyState = localStorage.getItem("_cloud_state");
+  if(_hasUnpushedChanges || dirtyState === "dirty"){
     console.log("⏸️ 本地有未推送修改，跳过云端 RECS/RULES 覆写");
     hasData = true; // 不覆写也不影响后续 refresh
+    // 标记未同步，稍后在 initApp 中主动推送到云端
+    if(!_hasUnpushedChanges && dirtyState === "dirty") _hasUnpushedChanges = true;
   } else {
     if(ud.recs && Array.isArray(ud.recs)){ RECS = ud.recs; localStorage.setItem(STORAGE_KEY_RECS,JSON.stringify(RECS)); hasData = true; }
     if(ud.rules && Array.isArray(ud.rules)){ RULES = ud.rules; localStorage.setItem(STORAGE_KEY_RULES,JSON.stringify(RULES)); }
@@ -1144,6 +1150,7 @@ function loadDetached(){
 function saveDetached(){
   localStorage.setItem(DETACHED_KEY, JSON.stringify(_detached));
   _hasUnpushedChanges = true;
+  localStorage.setItem("_cloud_state","dirty");
   scheduleCloudSync();
 }
 
@@ -2161,6 +2168,11 @@ async function initApp(){
 
   // 云端优先：有网就从云端拉数据覆盖本地
   const cloudLoaded = await loadFromCloud();
+
+  // ★ 如果本地有未同步的修改（刷新前改了数据但没推送上云端），立即推送到云端
+  if(cloudReady && _hasUnpushedChanges && (RECS.length > 0 || RULES.length > 0)){
+    setTimeout(pushToCloud, 500);
+  }
 
   initSelects();
   renderCal();
