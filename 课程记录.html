@@ -1482,7 +1482,7 @@ function filterCourseTypes(){
     {v:"初中一对一",g:"junior"},{v:"高中一对一",g:"senior"},
     {v:"初中一对多",g:"junior"},{v:"高中一对多",g:"senior"}
   ];
-  let vis=grades.size===1?ALL_TYPES.filter(o=>o.grade===grades.values().next().value):ALL_TYPES;
+  let vis=grades.size===1?ALL_TYPES.filter(o=>o.g===[...grades][0]):ALL_TYPES;
   const old=sel.value;
   _busy=true;
   sel.innerHTML=vis.map(o=>`<option value="${o.v}">${o.v}</option>`).join("");
