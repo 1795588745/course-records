@@ -1436,9 +1436,9 @@ function closeAdd(){ document.getElementById("add-modal").classList.remove("open
 
 function buildStuBox(checked){
   const box=document.getElementById("stu-box");
-  // 根据当前课程类型过滤可选的学员年级
+  // 根据当前课程类型过滤可选的学员年级（兼容"初一/二/三"和"初中"两种格式）
   const type=document.getElementById("i-type").value;
-  const gradeNeed=type.includes("高中")?"senior":type.includes("初中")?"junior":null;
+  const gradeNeed=type.includes("高一")||type.includes("高二")||type.includes("高三")||type.includes("高中")?"senior":type.includes("初一")||type.includes("初二")||type.includes("初三")||type.includes("初中")?"junior":null;
   let candidates=STUS;
   if(gradeNeed) candidates=STUS.filter(s=>s.grade===gradeNeed);
   // 只保留符合年级的已选学员
