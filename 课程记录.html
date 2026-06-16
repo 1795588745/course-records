@@ -2,24 +2,45 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>方老师课程记录</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>课程记录</title>
+<!-- PWA: iOS Safari -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="课程记录">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="apple-touch-icon" sizes="120x120" href="icons/icon-120.png">
+<link rel="apple-touch-icon" sizes="152x152" href="icons/icon-152.png">
+<link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180.png">
+<!-- PWA: manifest -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1e468c">
+<!-- Fallback favicon -->
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23534AB7'/%3E%3Crect x='12' y='12' width='40' height='44' rx='6' fill='%23fff'/%3E%3Crect x='18' y='20' width='14' height='2' rx='1' fill='%23998FE0'/%3E%3Crect x='18' y='26' width='14' height='2' rx='1' fill='%23998FE0'/%3E%3Crect x='18' y='32' width='10' height='2' rx='1' fill='%23998FE0'/%3E%3Crect x='36' y='14' width='16' height='16' rx='4' fill='%23F0AD4E'/%3E%3Ctext x='44' y='26' font-family='Arial,sans-serif' font-size='13' font-weight='bold' fill='%23fff' text-anchor='middle'%3E课%3C/text%3E%3C/svg%3E">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:"PingFang SC","Microsoft YaHei",sans-serif;background:#f5f4f0;color:#2c2c2a;font-size:14px}
+body{font-family:"PingFang SC","Microsoft YaHei",sans-serif;background:#f5f4f0;color:#2c2c2a;font-size:14px;
+  /* padding-top 去掉：.top-bar 已自行处理灵动岛安全区 */
+  padding-bottom: env(safe-area-inset-bottom);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
 
 /* ── 顶部 ── */
-.top-bar{background:#fff;border-bottom:1px solid #e8e7e3;padding:0 20px;height:50px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:200}
+.top-bar{background:#fff;border-bottom:1px solid #e8e7e3;padding:0 20px;height:50px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:200;
+  padding-left: max(20px, env(safe-area-inset-left));
+  padding-right: max(20px, env(safe-area-inset-right));
+}
 .top-bar h1{font-size:15px;font-weight:600}
 .top-bar-right{display:flex;align-items:center;gap:8px}
 
 /* ── 工具栏 ── */
 .toolbar{background:#fff;border-bottom:1px solid #e8e7e3;padding:8px 20px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .week-nav{display:flex;align-items:center;gap:6px}
-.week-label{font-size:13px;font-weight:500;min-width:200px;text-align:center;color:#2c2c2a}
+.week-label{font-size:13px;font-weight:500;min-width:200px;text-align:center;color:#2c2c2a;cursor:pointer;border-radius:6px;padding:2px 8px;user-select:none}
+.week-label:hover{background:#f5f4f0}
 .nav-btn{width:26px;height:26px;border-radius:6px;border:1px solid #d9d8d4;background:#fff;cursor:pointer;font-size:15px;color:#666;display:flex;align-items:center;justify-content:center}
 .nav-btn:hover{background:#f5f4f0}
 .today-btn{padding:4px 10px;border-radius:6px;border:1px solid #d9d8d4;background:#fff;cursor:pointer;font-size:12px;color:#555;font-family:inherit}
@@ -79,7 +100,8 @@ body{font-family:"PingFang SC","Microsoft YaHei",sans-serif;background:#f5f4f0;c
 .day-col.drag-over{background:rgba(83,74,183,.07)}
 .cb.cj{background:#4A90D9;color:#fff}
 .cb.cs{background:#D9534A;color:#fff}
-.cb.cg{background:#534AB7;color:#fff}
+.cb.cm{background:#3BA99C;color:#fff}
+.cb.ch{background:#E67E22;color:#fff}
 .cb.from-rule{border-left:3px solid #f0ad4e}
 .cb-time{font-size:11px;opacity:.85;white-space:nowrap}
 .cb-stu{font-size:12px;font-weight:600;white-space:normal;word-break:break-all;line-height:1.4;margin-top:2px}
@@ -103,6 +125,10 @@ body{font-family:"PingFang SC","Microsoft YaHei",sans-serif;background:#f5f4f0;c
 .empty{text-align:center;color:#aaa;padding:40px 0;font-size:13px}
 .fee-val{font-weight:600;color:#0F6E56}
 .badge{display:inline-block;padding:2px 7px;border-radius:4px;font-size:11px;margin:1px 2px}
+.badge.bj{background:#dbe9f8;color:#4A90D9;border:1px solid #bdd4ec}
+.badge.bs{background:#fce4e4;color:#D9534A;border:1px solid #f5c6c6}
+.badge.bm{background:#d9f2ec;color:#3BA99C;border:1px solid #b8e2d8}
+.badge.bh{background:#fde8d0;color:#E67E22;border:1px solid #f8d0a0}
 .bj{background:#E6F1FB;color:#185FA5}.bs{background:#FCEBEB;color:#A32D2D}.bg{background:#EEEDFE;color:#534AB7}
 .rule-tag{display:inline-block;padding:1px 5px;border-radius:3px;font-size:10px;background:#FFF8E7;color:#BA7517;border:1px solid #F5DFA0;margin-left:4px;vertical-align:middle}
 
@@ -208,6 +234,196 @@ body{font-family:"PingFang SC","Microsoft YaHei",sans-serif;background:#f5f4f0;c
 .login-toggle a:hover{text-decoration:underline}
 .btn-logout{background:none;border:1px solid #e8d0cf;color:#c0392b;border-radius:6px;padding:4px 10px;font-size:11px;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:4px}
 .btn-logout:hover{background:#fdf2f2}
+
+/* ══════════════════════════════════════
+   手机端响应式（≤600px）
+   桌面端布局完全不受影响
+   ══════════════════════════════════════ */
+@media (max-width: 600px) {
+
+  /* —— 顶栏：两行布局，顶部留出灵动岛安全距离 —— */
+  .top-bar{
+    height: auto;
+    flex-direction: column;
+    align-items: stretch;
+    padding: max(8px, env(safe-area-inset-top)) 12px 6px;
+    gap: 6px;
+  }
+  .top-bar h1 { font-size: 16px; }
+  .top-bar-right{
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr auto;
+    gap: 5px;
+  }
+  .top-bar-right .btn {
+    font-size: 11px;
+    padding: 6px 4px;
+    text-align: center;
+    white-space: nowrap;
+  }
+  .btn-logout { font-size: 11px; padding: 6px 8px; }
+
+  /* —— 工具栏：紧凑一行 —— */
+  .toolbar {
+    padding: 5px 10px;
+    gap: 6px;
+    flex-wrap: nowrap;
+  }
+  .week-nav { flex: 1; min-width: 0; }
+  .week-label {
+    font-size: 11px;
+    min-width: 0;
+    flex: 1;
+    text-align: center;
+  }
+  .toolbar-right { margin-left: 0; gap: 5px; flex-shrink: 0; }
+  .btn-primary { font-size: 11px; padding: 5px 8px; }
+  .view-tabs { gap: 2px; }
+  .view-tab { font-size: 11px; padding: 4px 8px; }
+
+  /* —— body 禁止页面级滚动（仅移动端），周视图内部管理自己 —— */
+  body {
+    overflow: hidden;
+    overflow-x: hidden;
+    height: 100vh;
+    height: 100dvh;
+    max-width: 100vw;
+  }
+
+  /* —— 周视图：撑满剩余高度，不允许溢出 —— */
+  .cal-container {
+    padding: 0;
+    display: none;          /* 仅 active 时显示 */
+    flex-direction: column;
+    height: calc(100dvh - var(--topbar-h, 96px) - var(--bottombar-h, 0px));
+    overflow: hidden;
+  }
+  .cal-container.active { display: flex; }
+  .list-container { display: none; }
+  .list-container.active { display: block; }
+  .cal-wrap {
+    flex: 1;
+    margin: 0;
+    border-radius: 0;
+    border-left: none;
+    border-right: none;
+    border-bottom: none;
+    max-height: none;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+  /* 日历主体：不单独滚动（全部内容都要在屏幕内显示） */
+  .cal-body { overflow-y: hidden !important; flex: 1; }
+
+  /* 日历头部 */
+  .cal-head { grid-template-columns: 36px repeat(7, 1fr); flex-shrink: 0; }
+  .cal-head-day { padding: 4px 2px; }
+  .day-name { font-size: 9px; }
+  .day-num { font-size: 14px; }
+  .day-num.is-today { width: 22px; height: 22px; font-size: 12px; }
+  .day-cnt { font-size: 9px; }
+
+  /* 时间轴 */
+  .cal-time-gutter { width: 36px; }
+  /* time-cell 和 hour-slot 高度由 JS 动态注入，CSS 不写死 */
+  .time-cell { font-size: 8px; padding: 2px 3px 0; }
+
+  /* 课程块文字 */
+  .cb { padding: 2px 3px; border-radius: 4px; left: 1px; right: 1px; }
+  .cb-time { font-size: 8px; }
+  .cb-stu  { font-size: 9px;  margin-top: 1px; }
+  .cb-fee  { font-size: 8px; }
+
+  /* —— 列表视图：自己有滚动区域，禁止横向溢出 —— */
+  .list-container {
+    padding: 0 10px 20px;
+    height: calc(100dvh - var(--topbar-h, 96px) - var(--bottombar-h, 0px));
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+    max-width: 100vw;
+    overscroll-behavior-x: contain;
+  }
+
+  /* —— 列表表格：移动端紧凑 —— */
+  .list-tbl { font-size: 10px; table-layout: fixed; width: 100%; }
+  .list-tbl th, .list-tbl td { padding: 5px 3px; vertical-align: middle; }
+  .list-tbl th { font-size: 9px; white-space: normal; }
+  /* 手机端隐藏「人数」(第6列) 和「备注」(第8列)，释放空间 */
+  .list-tbl th:nth-child(6), .list-tbl td:nth-child(6),
+  .list-tbl th:nth-child(8), .list-tbl td:nth-child(8) { display: none; }
+  /* 列宽分配：日期 | 时间 | 类型 | 课时 | 学员 | 费用 | 操作 */
+  .list-tbl th:nth-child(1), .list-tbl td:nth-child(1) { width: 52px; white-space: normal !important; }
+  .list-tbl th:nth-child(2), .list-tbl td:nth-child(2) { width: 38px; }
+  .list-tbl th:nth-child(3), .list-tbl td:nth-child(3) { width: 54px; }
+  .list-tbl th:nth-child(4), .list-tbl td:nth-child(4) { width: 28px; text-align: center; }
+  .list-tbl th:nth-child(5), .list-tbl td:nth-child(5) { width: auto; }
+  .list-tbl th:nth-child(7), .list-tbl td:nth-child(7) { width: 44px; text-align: right; }
+  .list-tbl th:nth-child(9), .list-tbl td:nth-child(9) { width: 50px; text-align: center; }
+  .list-tbl .btn-edit-sm, .list-tbl .btn-danger-sm { font-size: 9px; padding: 2px 4px; margin: 0; }
+  .list-tbl td .badge { font-size: 9px; padding: 1px 4px; margin: 1px 1px 0 0; display: inline-block; }
+  .list-tbl td .fee-val { font-size: 10px; }
+  .stats-bar { gap: 6px; }
+  .stat-c { padding: 8px 10px; }
+  .stat-c .num { font-size: 16px; }
+  .stat-c .lbl { font-size: 10px; }
+
+  /* —— 月工资计算：手机端改 2 列 —— */
+  .salary-panel { padding: 10px 10px; }
+  .sp-grid label { gap: 2px; }
+  .sp-grid label span { font-size: 10px; }
+  .sp-grid label input { font-size: 11px; padding: 5px 6px; }
+  .sp-result { grid-template-columns: repeat(2, 1fr); gap: 6px; }
+  .sp-result-item { padding: 8px 8px; }
+  .sp-result-item .sp-label { font-size: 10px; }
+  .sp-result-item .sp-val { font-size: 15px; }
+  .sp-result-item .sp-detail { font-size: 9px; word-break: break-all; }
+  .sp-hist-table th, .sp-hist-table td { padding: 5px 4px; font-size: 10px; }
+  .sp-hist-table .btn-edit-sm, .sp-hist-table .btn-danger-sm { font-size: 9px; padding: 2px 4px; }
+
+  /* —— 加班面板 —— */
+  .ot-panel { margin: 12px 0 0; padding: 12px 12px; }
+  .ot-stats { gap: 6px; }
+  .ot-stat { padding: 8px 8px; }
+  .ot-stat .ot-num { font-size: 17px; }
+
+  /* —— 模态框：全屏弹出，内部可滚动 —— */
+  .modal { width: 94vw; max-height: 90vh; overflow-y: auto; }
+  .modal.xs { width: 94vw; }
+}
+
+/* 超小屏额外补丁（≤380px，如 SE 等老机型）*/
+@media (max-width: 380px) {
+  .day-name { font-size: 8px; }
+  .day-num { font-size: 13px; }
+  .time-cell { font-size: 8px; }
+  .cb-time, .cb-stu, .cb-fee { font-size: 9px; }
+}
+
+/* ── 加班/调休面板 ── */
+.ot-panel{background:#fff;border:1px solid #e8e7e3;border-radius:12px;margin:16px 20px 0;padding:16px 20px}
+.ot-title{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.ot-title span{font-size:13px;font-weight:600;color:#2c2c2a}
+.ot-title-btns{display:flex;gap:6px}
+.ot-stats{display:flex;gap:10px;margin-bottom:14px}
+.ot-stat{flex:1;background:#f8f7f3;border-radius:8px;padding:10px 14px;text-align:center}
+.ot-stat .ot-num{font-size:20px;font-weight:700}
+.ot-stat .ot-lbl{font-size:11px;color:#888;margin-top:2px}
+.ot-stat.c-orange .ot-num{color:#BA7517}
+.ot-stat.c-green .ot-num{color:#0F6E56}
+.ot-stat.c-purple .ot-num{color:#534AB7}
+.ot-tbl-wrap{margin-top:4px}
+.ot-tbl-tabs{display:flex;gap:2px;background:#f0efe9;border-radius:7px;padding:2px;width:fit-content;margin-bottom:10px}
+.ot-tbl-tab{padding:3px 12px;border-radius:5px;font-size:11px;font-weight:500;cursor:pointer;border:none;background:transparent;color:#888780;font-family:inherit}
+.ot-tbl-tab.active{background:#fff;color:#2c2c2a;box-shadow:0 1px 3px rgba(0,0,0,.1)}
+.ot-tbl{width:100%;border-collapse:collapse;font-size:12px}
+.ot-tbl th{text-align:left;padding:6px 10px;color:#888;font-weight:500;border-bottom:1px solid #f0efe9;font-size:11px}
+.ot-tbl td{padding:7px 10px;border-bottom:1px solid #f8f7f3;color:#2c2c2a}
+.ot-tbl tr:last-child td{border-bottom:none}
+.ot-tbl .ot-h{font-weight:600;color:#BA7517}
+.ot-tbl .ot-h-used{font-weight:600;color:#0F6E56}
+.ot-empty{color:#aaa;font-size:12px;padding:12px 0;text-align:center}
 </style>
 </head>
 <body>
@@ -216,7 +432,7 @@ body{font-family:"PingFang SC","Microsoft YaHei",sans-serif;background:#f5f4f0;c
 <div class="login-screen" id="login-screen">
   <div class="login-card">
     <div class="lc-icon">📚</div>
-    <h2>方老师课程记录</h2>
+    <h2>课程记录</h2>
     <div class="sub">请登录以查看和管理课程</div>
 
     <!-- 登录模式 -->
@@ -260,9 +476,11 @@ body{font-family:"PingFang SC","Microsoft YaHei",sans-serif;background:#f5f4f0;c
 
 <!-- ═══ 顶部栏 ═══ -->
 <div class="top-bar">
-  <h1>方老师课程记录</h1>
+  <div style="display:flex;align-items:center;gap:10px">
+    <h1>课程记录</h1>
+    <span style="font-size:11px;color:#888;background:#f0efe9;padding:2px 8px;border-radius:4px" id="top-user">方老师</span>
+  </div>
   <div class="top-bar-right">
-    <span style="font-size:11px;color:#888;margin-right:4px" id="top-user">方老师</span>
     <button class="btn btn-amber" onclick="openRuleMgr()">📅 规则排课</button>
     <button class="btn btn-outline" onclick="openStuMgr()">👤 管理学员</button>
     <button class="btn btn-success" onclick="openExport()">⬇ 下载 Excel</button>
@@ -274,7 +492,8 @@ body{font-family:"PingFang SC","Microsoft YaHei",sans-serif;background:#f5f4f0;c
 <div class="toolbar">
   <div class="week-nav">
     <button class="nav-btn" onclick="shiftWeek(-1)">‹</button>
-    <span class="week-label" id="week-label">—</span>
+    <span class="week-label" id="week-label" onclick="openDatePicker()" title="点击选择日期">—</span>
+    <input type="date" id="date-picker" style="position:absolute;width:0;height:0;opacity:0;pointer-events:none" onchange="onDatePickerChange(this.value)">
     <button class="nav-btn" onclick="shiftWeek(1)">›</button>
     <button class="today-btn" onclick="goToday()">今天</button>
   </div>
@@ -322,6 +541,41 @@ body{font-family:"PingFang SC","Microsoft YaHei",sans-serif;background:#f5f4f0;c
     </div>
     <div class="sp-history"><div class="sp-history-title"><span>本年工资记录</span><button class="btn-hist-add" onclick="openSalaryEdit(null)">+ 手动添加</button></div><div id="sp-hist-box"><div class="sp-hist-empty">暂无历史记录</div></div></div>
   </div>
+
+  <!-- ═══ 加班/调休面板 ═══ -->
+  <div class="ot-panel" id="ot-panel">
+    <div class="ot-title">
+      <span>⏰ 加班 &amp; 调休</span>
+      <div class="ot-title-btns">
+        <button class="btn btn-ghost" style="font-size:11px;padding:4px 10px" onclick="openOtAdd()">＋ 加班记录</button>
+        <button class="btn btn-outline" style="font-size:11px;padding:4px 10px" onclick="openTxAdd()">－ 使用调休</button>
+      </div>
+    </div>
+    <div class="ot-stats">
+      <div class="ot-stat c-orange"><div class="ot-num" id="ot-total">0</div><div class="ot-lbl">累计加班（小时）</div></div>
+      <div class="ot-stat c-green"><div class="ot-num" id="ot-used">0</div><div class="ot-lbl">已使用调休（小时）</div></div>
+      <div class="ot-stat c-purple"><div class="ot-num" id="ot-avail">0</div><div class="ot-lbl">可用调休（小时）</div></div>
+    </div>
+    <div class="ot-tbl-wrap">
+      <div class="ot-tbl-tabs">
+        <button class="ot-tbl-tab active" id="ot-tab-ot" onclick="switchOtTab('ot')">加班明细</button>
+        <button class="ot-tbl-tab" id="ot-tab-tx" onclick="switchOtTab('tx')">调休明细</button>
+      </div>
+      <div id="ot-tab-content-ot">
+        <table class="ot-tbl">
+          <thead><tr><th>日期</th><th>加班时长</th><th>备注</th><th style="width:60px"></th></tr></thead>
+          <tbody id="ot-list-body"><tr><td colspan="4" class="ot-empty">暂无加班记录</td></tr></tbody>
+        </table>
+      </div>
+      <div id="ot-tab-content-tx" style="display:none">
+        <table class="ot-tbl">
+          <thead><tr><th>日期</th><th>使用时长</th><th>备注</th><th style="width:60px"></th></tr></thead>
+          <tbody id="tx-list-body"><tr><td colspan="4" class="ot-empty">暂无调休记录</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
   <div class="month-sel">
     <span style="font-size:12px;color:#5f5e5a">筛选：</span>
     <select id="ly" onchange="renderList()"></select>年
@@ -360,7 +614,7 @@ body{font-family:"PingFang SC","Microsoft YaHei",sans-serif;background:#f5f4f0;c
         <div class="fg"><label>截止日期（可选）</label><input type="date" id="i-rule-end"></div>
       </div>
       <div class="frow">
-        <div class="fg"><label>课程类型</label><select id="i-type" onchange="calcPreview()"><option value="初中一对一">初中一对一</option><option value="高中一对一">高中一对一</option><option value="一对多">一对多</option></select></div>
+        <div class="fg"><label>课程类型</label><select id="i-type" onchange="onTypeChange()"><option value="初中一对一">初中一对一</option><option value="高中一对一">高中一对一</option><option value="初中一对多">初中一对多</option><option value="高中一对多">高中一对多</option></select></div>
         <div class="fg"><label>课时时长</label><select id="i-dur" onchange="calcPreview()"><option value="2">2小时</option><option value="1.5">1.5小时</option></select></div>
       </div>
       <div class="frow full"><div class="fg"><label>到课学员（可多选）</label><div class="stu-box" id="stu-box"></div></div></div>
@@ -440,6 +694,39 @@ body{font-family:"PingFang SC","Microsoft YaHei",sans-serif;background:#f5f4f0;c
     <div class="mfoot">
       <button class="btn btn-ghost" onclick="closeSalaryEdit()">取消</button>
       <button class="btn btn-primary" onclick="saveSalaryEdit()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ 加班记录 模态框 ═══ -->
+<div class="modal-bg" id="ot-add-modal" onclick="bgClose('ot-add-modal')">
+  <div class="modal xs" onclick="event.stopPropagation()">
+    <div class="mhead"><h2>添加加班记录</h2><button class="mclose" onclick="closeOtAdd()">×</button></div>
+    <div class="mbody">
+      <div class="frow full"><div class="fg"><label>加班日期</label><input type="date" id="ot-date"></div></div>
+      <div class="frow full"><div class="fg"><label>加班时长（小时）</label><input type="number" id="ot-hours" placeholder="如 2 或 1.5" step="0.5" min="0.5"></div></div>
+      <div class="frow full"><div class="fg"><label>备注（可选）</label><input type="text" id="ot-note" placeholder="如：期末改卷、家长会等"></div></div>
+    </div>
+    <div class="mfoot">
+      <button class="btn btn-ghost" onclick="closeOtAdd()">取消</button>
+      <button class="btn btn-primary" onclick="saveOtAdd()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ 调休使用 模态框 ═══ -->
+<div class="modal-bg" id="tx-add-modal" onclick="bgClose('tx-add-modal')">
+  <div class="modal xs" onclick="event.stopPropagation()">
+    <div class="mhead"><h2>使用调休</h2><button class="mclose" onclick="closeTxAdd()">×</button></div>
+    <div class="mbody">
+      <div class="frow full"><div class="fg"><label>调休日期</label><input type="date" id="tx-date"></div></div>
+      <div class="frow full"><div class="fg"><label>使用时长（小时）</label><input type="number" id="tx-hours" placeholder="如 4 或 8" step="0.5" min="0.5"></div></div>
+      <div class="frow full"><div class="fg"><label>备注（可选）</label><input type="text" id="tx-note" placeholder="如：调休一天"></div></div>
+      <div style="font-size:11px;color:#aaa;margin-top:-4px" id="tx-avail-tip">当前可用调休：<b id="tx-avail-show">0</b> 小时</div>
+    </div>
+    <div class="mfoot">
+      <button class="btn btn-ghost" onclick="closeTxAdd()">取消</button>
+      <button class="btn btn-primary" onclick="saveTxAdd()">保存</button>
     </div>
   </div>
 </div>
@@ -579,7 +866,7 @@ async function doRegister(){
 // ══════════════════════════════
 //  本地数据存储（localStorage）—— 按用户隔离键名
 // ══════════════════════════════
-let STORAGE_KEY_RECS, STORAGE_KEY_RULES, DETACHED_KEY, STUDENT_LIST_KEY, SALARY_KEY, SALARY_CFG_KEY;
+let STORAGE_KEY_RECS, STORAGE_KEY_RULES, DETACHED_KEY, STUDENT_LIST_KEY, SALARY_KEY, SALARY_CFG_KEY, OT_KEY, TX_KEY;
 
 function setUserKeys(username){
   const p = "u_" + username + "_";
@@ -589,6 +876,8 @@ function setUserKeys(username){
   STUDENT_LIST_KEY = p + "students";
   SALARY_KEY = p + "salary";
   SALARY_CFG_KEY = p + "salary_cfg";
+  OT_KEY = p + "overtime";
+  TX_KEY = p + "txrest";
 }
 
 function loadRecs(){
@@ -596,6 +885,7 @@ function loadRecs(){
 }
 function saveRecs(){
   localStorage.setItem(STORAGE_KEY_RECS, JSON.stringify(RECS));
+  _hasUnpushedChanges = true;
   scheduleCloudSync();
 }
 function loadRules(){
@@ -603,6 +893,7 @@ function loadRules(){
 }
 function saveRules(){
   localStorage.setItem(STORAGE_KEY_RULES, JSON.stringify(RULES));
+  _hasUnpushedChanges = true;
   scheduleCloudSync();
 }
 
@@ -623,6 +914,8 @@ function recoverData(){
     if(!key || key === STORAGE_KEY_RECS || key === STORAGE_KEY_RULES) continue;
     if(key.startsWith(DETACHED_KEY) || key.startsWith(STUDENT_LIST_KEY) ||
        key.startsWith(SALARY_KEY) || key.startsWith("sb_") || key.startsWith("auth_")) continue;
+    // 跳过其他用户的隔离数据（u_ 前缀的键），避免数据串号
+    if(key.startsWith("u_")) continue;
 
     try {
       const val = JSON.parse(localStorage.getItem(key));
@@ -660,10 +953,46 @@ const SB_URL = "https://fqmtuwboyxzyzxlniizb.supabase.co";
 const SB_KEY = "sb_publishable_J4yYYqcVVlch8JHpeUmW0g_qMDNtDYr";
 let sb = null, cloudReady = false;
 
+let _cloudPollTimer = null;
+let _lastUpdatedAt = null;
+const POLL_INTERVAL = 3000;
+
+function startCloudPolling(){
+  stopCloudPolling();
+  _cloudPollTimer = setInterval(async () => {
+    if (!cloudReady) return;
+    const user = getCurrentUser();
+    if (!user) return;
+    try {
+      const { data, error } = await sb.from("app_state").select("updated_at").eq("id",1).single();
+      if (error || !data) return;
+      const remote = data.updated_at;
+      if (_lastUpdatedAt && remote && remote !== _lastUpdatedAt) {
+        console.log("☁️ 检测到云端数据变化，正在刷新…");
+        await loadFromCloud();
+        refresh();
+        console.log("☁️ 刷新完成");
+      }
+      _lastUpdatedAt = remote;
+    } catch(e) { /* 静默失败，下次再试 */ }
+  }, POLL_INTERVAL);
+  console.log("☁️ 云端轮询已启动（每 30 秒）");
+}
+
+function stopCloudPolling(){
+  if (_cloudPollTimer) { clearInterval(_cloudPollTimer); _cloudPollTimer = null; }
+}
+
 function initSupabase(){
   try { sb = window.supabase.createClient(SB_URL, SB_KEY); cloudReady = true; }
-  catch(e){ console.warn("Supabase 初始化失败，仅本地模式"); cloudReady = false; }
+  catch(e){ console.warn("Supabase 初始化失败，仅本地模式"); cloudReady = false; return; }
+  // 初始化 updated_at 基准值
+  sb.from("app_state").select("updated_at").eq("id",1).single()
+    .then(({ data }) => { if(data) _lastUpdatedAt = data.updated_at; });
+  // 启动轮询
+  startCloudPolling();
 }
+
 
 async function fetchFromCloudRaw(){
   if(!cloudReady) return null;
@@ -676,6 +1005,7 @@ async function fetchFromCloudRaw(){
 
 async function pushToCloud(){
   if(!cloudReady) return;
+  _hasUnpushedChanges = false;
   try {
     const user = getCurrentUser();
     if(!user) return;
@@ -688,16 +1018,19 @@ async function pushToCloud(){
       detached: _detached,
       student_list: STUS,
       salary_history: getSalaryHistory(),
-      salary_config: JSON.parse(localStorage.getItem(SALARY_CFG_KEY)||"{}")
+      salary_config: JSON.parse(localStorage.getItem(SALARY_CFG_KEY)||"{}"),
+      overtime: getOvertimeList(),
+      txrest: getTxList()
     };
     await sb.from("app_state").upsert({id:1, data:allData, updated_at:new Date().toISOString()});
     console.log("☁️ 已同步「"+user+"」到云端");
-  }catch(e){ console.warn("云端保存失败:",e.message); }
+  }catch(e){ _hasUnpushedChanges = true; console.warn("云端保存失败:",e.message); }
 }
 
-let _cloudTimer = null, _loading = false;
+let _cloudTimer = null, _loading = false, _pendingSync = false, _hasUnpushedChanges = false;
 function scheduleCloudSync(){
-  if(_loading) return;
+  if(_loading){ _pendingSync = true; return; }
+  _pendingSync = false;
   clearTimeout(_cloudTimer);
   _cloudTimer = setTimeout(pushToCloud, 800);
 }
@@ -706,36 +1039,85 @@ function scheduleCloudSync(){
 async function loadFromCloud(){
   if(!cloudReady) return false;
   _loading = true;
+  try {
   const user = getCurrentUser();
-  if(!user){ _loading = false; return false; }
+  if(!user){ return false; }
   const cloud = await fetchFromCloudRaw();
-  if(!cloud || !cloud[user]){ _loading = false; return false; }
+  if(!cloud || !cloud[user]){ return false; }
   const ud = cloud[user];
+
+  // ═══ 后台迁移：旧版 "一对多" → "初中一对多" ═══
+  let migrated = false;
+  [ud.recs, ud.rules].forEach(arr => {
+    if(!Array.isArray(arr)) return;
+    arr.forEach(r => {
+      if(r.type === "一对多"){ r.type = "初中一对多"; migrated = true; }
+    });
+  });
+  if(migrated) console.log("🔄 已将旧版「一对多」类型自动迁移为「初中一对多」");
 
   // 合并到内存（不触发云端回推）
   let hasData = false;
-  if(ud.recs && Array.isArray(ud.recs)){ RECS = ud.recs; localStorage.setItem(STORAGE_KEY_RECS,JSON.stringify(RECS)); hasData = true; }
-  if(ud.rules && Array.isArray(ud.rules)){ RULES = ud.rules; localStorage.setItem(STORAGE_KEY_RULES,JSON.stringify(RULES)); }
-  if(ud.detached && Array.isArray(ud.detached)){ _detached = ud.detached; localStorage.setItem(DETACHED_KEY,JSON.stringify(_detached)); }
+  // ★ 本地有未推送的修改时，跳过 RECS/RULES/_detached 覆写，防止云端旧数据覆盖本地新改动
+  if(_hasUnpushedChanges){
+    console.log("⏸️ 本地有未推送修改，跳过云端 RECS/RULES 覆写");
+    hasData = true; // 不覆写也不影响后续 refresh
+  } else {
+    if(ud.recs && Array.isArray(ud.recs)){ RECS = ud.recs; localStorage.setItem(STORAGE_KEY_RECS,JSON.stringify(RECS)); hasData = true; }
+    if(ud.rules && Array.isArray(ud.rules)){ RULES = ud.rules; localStorage.setItem(STORAGE_KEY_RULES,JSON.stringify(RULES)); }
+    // ★ 合并 _detached：保留本地新删的记录，不被云端旧数据覆盖
+    if(ud.detached && Array.isArray(ud.detached)){
+      const merged = new Set(_detached);
+      ud.detached.forEach(k => merged.add(k));
+      _detached = [...merged];
+      localStorage.setItem(DETACHED_KEY,JSON.stringify(_detached));
+    }
+  }
+  // 以下字段无频繁写入，正常加载
   if(ud.student_list && Array.isArray(ud.student_list)){ STUS = ud.student_list; localStorage.setItem(STUDENT_LIST_KEY,JSON.stringify(STUS)); }
   if(ud.salary_history && typeof ud.salary_history==="object"){ localStorage.setItem(SALARY_KEY,JSON.stringify(ud.salary_history)); }
   if(ud.salary_config && typeof ud.salary_config==="object"){ localStorage.setItem(SALARY_CFG_KEY,JSON.stringify(ud.salary_config)); }
-  _loading = false;
+  if(ud.overtime && Array.isArray(ud.overtime)){ localStorage.setItem(OT_KEY,JSON.stringify(ud.overtime)); }
+  if(ud.txrest && Array.isArray(ud.txrest)){ localStorage.setItem(TX_KEY,JSON.stringify(ud.txrest)); }
   if(hasData) console.log("☁️ 从云端加载了「"+user+"」的数据");
   return hasData;
+  } finally {
+    _loading = false;
+    // 如果加载期间有本地改动被阻塞，现在补推
+    if(_pendingSync) scheduleCloudSync();
+  }
 }
 
 // ══════════════════════════════
 //  常量
 // ══════════════════════════════
 const HOUR_START = 8, HOUR_END = 22;
-const CELL_H = 60;
+
+// 计算手机端每格高度，使日历撑满屏幕不需滚动
+function calcCellH() {
+  if (window.innerWidth > 600) return 60; // 桌面端固定60px
+  const screenH = window.innerHeight;
+  const topBar = document.querySelector('.top-bar');
+  const toolbar = document.querySelector('.toolbar');
+  const calHead = document.querySelector('.cal-head');
+  const bodyStyle = getComputedStyle(document.body);
+  const bodyPadBottom = parseInt(bodyStyle.paddingBottom) || 0;
+  // .top-bar 的 getBoundingClientRect().height 已包含其 padding（含 safe-area-inset-top）
+  const topH = (topBar ? topBar.getBoundingClientRect().height : 70) +
+               (toolbar ? toolbar.getBoundingClientRect().height : 38) +
+               (calHead ? calHead.getBoundingClientRect().height : 50);
+  const avail = screenH - topH - bodyPadBottom;
+  const h = Math.floor(avail / (HOUR_END - HOUR_START));
+  return Math.max(h, 24); // 最小24px
+}
+
+let CELL_H = 60; // 初始值，待 DOM ready 后更新
 const DAY_NAMES = ["周一","周二","周三","周四","周五","周六","周日"];
 const FEE_RULES = {
   "初中一对一":{2:130,1.5:97.5},
   "高中一对一":{2:160,1.5:120},
-  "一对多":{"junior":{1:130,2:160,3:190,4:210},"senior":{1:160,2:190,3:220,4:240}}
-};
+  "初中一对多":{1:130,2:160,3:190,4:210},
+  "高中一对多":{1:160,2:190,3:220,4:240}}
 const DEFAULT_STUS = [
   {name:"吴彦希",grade:"junior"},{name:"管晨皓",grade:"junior"},{name:"俞跃",grade:"junior"},
   {name:"曹柯",grade:"junior"},{name:"林威宇",grade:"junior"},{name:"林允儿",grade:"junior"},
@@ -761,6 +1143,7 @@ function loadDetached(){
 }
 function saveDetached(){
   localStorage.setItem(DETACHED_KEY, JSON.stringify(_detached));
+  _hasUnpushedChanges = true;
   scheduleCloudSync();
 }
 
@@ -770,18 +1153,15 @@ function saveDetached(){
 function calcFee(type,dur,cnt){
   if(type==="初中一对一") return FEE_RULES["初中一对一"][dur]||0;
   if(type==="高中一对一") return FEE_RULES["高中一对一"][dur]||0;
-  const grade = getMultiGrade(cnt);
-  const rules = FEE_RULES["一对多"][grade];
-  if(!rules) return 0;
-  if(dur===1.5) return grade==="junior"?97.5:120;
-  return cnt>0?(rules[Math.min(cnt,4)]||0):0;
-}
-function getMultiGrade(cnt){
-  if(cnt===0) return "junior";
-  const checked = getChecked();
-  let j=0,s=0;
-  checked.forEach(n=>{const st=STUS.find(x=>x.name===n);if(st&&st.grade==="senior")s++;else j++;});
-  return s>j?"senior":"junior";
+  if(type==="初中一对多") {
+    if(dur===1.5) return 97.5;
+    return cnt>0?(FEE_RULES["初中一对多"][Math.min(cnt,4)]||0):0;
+  }
+  if(type==="高中一对多") {
+    if(dur===1.5) return 120;
+    return cnt>0?(FEE_RULES["高中一对多"][Math.min(cnt,4)]||0):0;
+  }
+  return 0;
 }
 function p2(n){return String(n).padStart(2,"0")}
 function dkey(d){return `${d.getFullYear()}-${p2(d.getMonth()+1)}-${p2(d.getDate())}`}
@@ -797,6 +1177,8 @@ function getMonday(d){
 }
 function shiftWeek(n){ weekStart.setDate(weekStart.getDate()+n*7); refresh(); }
 function goToday(){ weekStart=getMonday(new Date()); refresh(); }
+function openDatePicker(){ const dp=document.getElementById("date-picker"); dp.style.pointerEvents="auto"; dp.showPicker?dp.showPicker():dp.click(); }
+function onDatePickerChange(val){ if(!val) return; weekStart=getMonday(new Date(val+"T00:00:00")); document.getElementById("date-picker").style.pointerEvents="none"; refresh(); }
 
 // ══════════════════════════════
 //  规则生成课程（客户端）
@@ -867,6 +1249,24 @@ function timeToMinutes(t){
 //  渲染周视图
 // ══════════════════════════════
 function renderCal(){
+  // 在移动端每次渲染前重新计算格子高度（让日历撑满屏幕）
+  if (window.innerWidth <= 600) {
+    // 精确测量已渲染的 DOM 高度（不含 body 安全区，避免重复计算）
+    const topBar = document.querySelector('.top-bar');
+    const toolbar = document.querySelector('.toolbar');
+    const bodyStyle = getComputedStyle(document.body);
+    const bodyPadBottom = parseInt(bodyStyle.paddingBottom) || 0;
+    // .top-bar 的 getBoundingClientRect().height 已包含其 padding（含 safe-area-inset-top）
+    const topH = (topBar ? topBar.getBoundingClientRect().height : 70) +
+                 (toolbar ? toolbar.getBoundingClientRect().height : 44);
+    document.documentElement.style.setProperty('--topbar-h', Math.round(topH) + 'px');
+    document.documentElement.style.setProperty('--bottombar-h', Math.round(bodyPadBottom) + 'px');
+    CELL_H = calcCellH();
+    // 动态注入 .time-cell / .hour-slot 高度（精确匹配 JS 计算值）
+    let mStyle = document.getElementById('_mobile_cell_style');
+    if (!mStyle) { mStyle = document.createElement('style'); mStyle.id = '_mobile_cell_style'; document.head.appendChild(mStyle); }
+    mStyle.textContent = `.time-cell{height:${CELL_H}px!important}.hour-slot{height:${CELL_H}px!important}`;
+  }
   generateFromRules();
   const recs = getVisibleRecs();
   const days = Array.from({length:7},(_,i)=>{ const d=new Date(weekStart); d.setDate(d.getDate()+i); return d; });
@@ -881,12 +1281,12 @@ function renderCal(){
   }).join("");
 
   const gut = document.getElementById("time-gutter");
-  gut.innerHTML = Array.from({length:HOUR_END-HOUR_START},(_,i)=>`<div class="time-cell">${p2(HOUR_START+i)}:00</div>`).join("");
+  gut.innerHTML = Array.from({length:HOUR_END-HOUR_START+1},(_,i)=>`<div class="time-cell">${p2(HOUR_START+i)}:00</div>`).join("");
 
   const calDays = document.getElementById("cal-days");
-  const totalH = (HOUR_END-HOUR_START)*CELL_H;
+  const totalH = (HOUR_END-HOUR_START+1)*CELL_H;
   calDays.innerHTML = days.map((d,di)=>{
-    return `<div class="day-col ${isToday(d)?"is-today":""}" id="dc-${di}" style="height:${totalH}px">${Array.from({length:HOUR_END-HOUR_START},(_,hi)=>`<div class="hour-line" style="top:${hi*CELL_H}px"></div><div class="hour-slot" style="top:${hi*CELL_H}px" data-date="${dkey(d)}" data-h="${HOUR_START+hi}" onclick="onSlotClick('${dkey(d)}',${HOUR_START+hi},event)"></div>`).join("")}</div>`;
+    return `<div class="day-col ${isToday(d)?"is-today":""}" id="dc-${di}" style="height:${totalH}px">${Array.from({length:HOUR_END-HOUR_START+1},(_,hi)=>`<div class="hour-line" style="top:${hi*CELL_H}px"></div><div class="hour-slot" style="top:${hi*CELL_H}px" data-date="${dkey(d)}" data-h="${HOUR_START+hi}" onclick="onSlotClick('${dkey(d)}',${HOUR_START+hi},event)"></div>`).join("")}</div>`;
   }).join("");
 
   recs.forEach(r=>{
@@ -898,7 +1298,7 @@ function renderCal(){
     if(!col) return;
     const topPx = (sh-HOUR_START)*CELL_H + sm/60*CELL_H;
     const heightPx = Math.max(r.duration*CELL_H-4, 24);
-    const typeClass = r.type==="高中一对一"?"cs":r.type==="一对多"?"cg":"cj";
+    const typeClass = r.type==="高中一对一"?"cs":r.type==="初中一对多"?"cm":r.type==="高中一对多"?"ch":"cj";
     const stuText = r.students.join("、");
     const isFromRule = !!r.ruleId;
     const block = document.createElement("div");
@@ -1036,8 +1436,15 @@ function closeAdd(){ document.getElementById("add-modal").classList.remove("open
 
 function buildStuBox(checked){
   const box=document.getElementById("stu-box");
-  if(!STUS.length){box.innerHTML='<div style="color:#aaa;font-size:12px;padding:6px">暂无学员，请先添加</div>';return;}
-  box.innerHTML=STUS.map(s=>`<label><input type="checkbox" class="sc" value="${s.name}" ${checked.includes(s.name)?"checked":""} onchange="calcPreview()"><span>${s.name}</span><span class="gdot ${s.grade==="senior"?"gds":"gdj"}">${s.grade==="senior"?"高中":"初中"}</span></label>`).join("");
+  // 根据当前课程类型过滤可选的学员年级
+  const type=document.getElementById("i-type").value;
+  const gradeNeed=type.includes("高中")?"senior":type.includes("初中")?"junior":null;
+  let candidates=STUS;
+  if(gradeNeed) candidates=STUS.filter(s=>s.grade===gradeNeed);
+  // 只保留符合年级的已选学员
+  const validChecked=checked.filter(n=>candidates.find(s=>s.name===n));
+  if(!candidates.length){box.innerHTML='<div style="color:#aaa;font-size:12px;padding:6px">该类型暂无可选学员</div>';return;}
+  box.innerHTML=candidates.map(s=>`<label><input type="checkbox" class="sc" value="${s.name}" ${validChecked.includes(s.name)?"checked":""} onchange="onStuCheckChange()"><span>${s.name}</span><span class="gdot ${s.grade==="senior"?"gds":"gdj"}">${s.grade==="senior"?"高中":"初中"}</span></label>`).join("");
 }
 
 function getChecked(){ return Array.from(document.querySelectorAll(".sc:checked")).map(c=>c.value); }
@@ -1048,7 +1455,39 @@ function calcPreview(){
   const cnt=getChecked().length;
   const fee=calcFee(type,dur,cnt);
   document.getElementById("fee-amt").textContent="¥"+fee;
-  document.getElementById("fee-rule").textContent=type==="一对多"?`${cnt}人 → ${fee}元`:`${dur}h → ${fee}元`;
+  document.getElementById("fee-rule").textContent=(type==="初中一对多"||type==="高中一对多")?`${cnt}人 → ${fee}元`:`${dur}h → ${fee}元`;
+}
+
+// ── 课程类型 ↔ 学员 双向联动 ──
+let _busy=false;
+function onTypeChange(){
+  if(_busy) return;
+  // 类型变了 → 重建学员列表（只显示对应年级），保留匹配的已选学员
+  buildStuBox(getChecked());
+  calcPreview();
+}
+
+function onStuCheckChange(){
+  // 学员勾选变了 → 筛选课程类型
+  filterCourseTypes();
+  calcPreview();
+}
+
+function filterCourseTypes(){
+  const sel=document.getElementById("i-type");
+  const checked=getChecked();
+  const grades=new Set();
+  checked.forEach(n=>{const s=STUS.find(x=>x.name===n);if(s)grades.add(s.grade);});
+  const ALL_TYPES=[
+    {v:"初中一对一",g:"junior"},{v:"高中一对一",g:"senior"},
+    {v:"初中一对多",g:"junior"},{v:"高中一对多",g:"senior"}
+  ];
+  let vis=grades.size===1?ALL_TYPES.filter(o=>o.grade===grades.values().next().value):ALL_TYPES;
+  const old=sel.value;
+  _busy=true;
+  sel.innerHTML=vis.map(o=>`<option value="${o.v}">${o.v}</option>`).join("");
+  if(vis.find(o=>o.v===old)) sel.value=old; else sel.value=vis[0].value;
+  _busy=false;
 }
 
 async function saveRecord(){
@@ -1173,7 +1612,7 @@ function renderList(){
   let tf=0,th=0,ts=0;
   tb.innerHTML=f.map(r=>{
     tf+=r.fee;th+=r.duration;ts+=r.students.length;
-    const tc=r.type==="高中一对一"?"bs":r.type==="一对多"?"bg":"bj";
+    const tc=r.type==="高中一对一"?"bs":r.type==="初中一对多"?"bm":r.type==="高中一对多"?"bh":"bj";
     const sb=r.students.map(s=>{ const info=STUS.find(x=>x.name===s); return `<span class="badge ${info&&info.grade==="senior"?"bs":"bj"}">${s}</span>`; }).join("");
     const [yy,mm,dd]=r.date.split("-");
     const timeCell=r.startTime?`<span style="white-space:nowrap;color:#888">${r.startTime}</span>`:`<span style="white-space:nowrap;color:#c0392b;font-size:11px;background:#fdf2f2;padding:1px 6px;border-radius:4px;border:1px solid #f5c6c6">未排课</span>`;
@@ -1185,6 +1624,119 @@ function renderList(){
   document.getElementById("s-fee").textContent="¥"+tf;
   document.getElementById("s-stu").textContent=ts;
   calcSalary(tf);
+}
+
+// ══════════════════════════════
+//  加班 & 调休
+// ══════════════════════════════
+
+function getOvertimeList(){ try{ return JSON.parse(localStorage.getItem(OT_KEY)||"[]"); }catch(e){ return []; } }
+function saveOvertimeList(arr){ localStorage.setItem(OT_KEY,JSON.stringify(arr)); scheduleCloudSync(); }
+function getTxList(){ try{ return JSON.parse(localStorage.getItem(TX_KEY)||"[]"); }catch(e){ return []; } }
+function saveTxList(arr){ localStorage.setItem(TX_KEY,JSON.stringify(arr)); scheduleCloudSync(); }
+
+function renderOtPanel(){
+  const ot = getOvertimeList();
+  const tx = getTxList();
+  const totalOt = ot.reduce((s,r)=>s+(+r.hours||0),0);
+  const totalTx = tx.reduce((s,r)=>s+(+r.hours||0),0);
+  const avail = Math.max(0, totalOt - totalTx);
+
+  document.getElementById("ot-total").textContent = totalOt % 1 === 0 ? totalOt : totalOt.toFixed(1);
+  document.getElementById("ot-used").textContent = totalTx % 1 === 0 ? totalTx : totalTx.toFixed(1);
+  document.getElementById("ot-avail").textContent = avail % 1 === 0 ? avail : avail.toFixed(1);
+
+  // 加班明细
+  const ob = document.getElementById("ot-list-body");
+  if(!ot.length){
+    ob.innerHTML = '<tr><td colspan="4" class="ot-empty">暂无加班记录</td></tr>';
+  } else {
+    ob.innerHTML = ot.slice().sort((a,b)=>b.date.localeCompare(a.date)).map(r=>{
+      const [yy,mm,dd]=r.date.split("-");
+      return `<tr><td style="white-space:nowrap">${yy}年${+mm}月${+dd}日</td><td class="ot-h">${r.hours}h</td><td style="color:#888;font-size:12px">${r.note||"—"}</td><td style="text-align:center"><button class="btn-danger-sm" onclick="delOt('${r.id}')">删除</button></td></tr>`;
+    }).join("");
+  }
+
+  // 调休明细
+  const tb2 = document.getElementById("tx-list-body");
+  if(!tx.length){
+    tb2.innerHTML = '<tr><td colspan="4" class="ot-empty">暂无调休记录</td></tr>';
+  } else {
+    tb2.innerHTML = tx.slice().sort((a,b)=>b.date.localeCompare(a.date)).map(r=>{
+      const [yy,mm,dd]=r.date.split("-");
+      return `<tr><td style="white-space:nowrap">${yy}年${+mm}月${+dd}日</td><td class="ot-h-used">${r.hours}h</td><td style="color:#888;font-size:12px">${r.note||"—"}</td><td style="text-align:center"><button class="btn-danger-sm" onclick="delTx('${r.id}')">删除</button></td></tr>`;
+    }).join("");
+  }
+}
+
+function switchOtTab(tab){
+  document.getElementById("ot-tab-ot").classList.toggle("active", tab==="ot");
+  document.getElementById("ot-tab-tx").classList.toggle("active", tab==="tx");
+  document.getElementById("ot-tab-content-ot").style.display = tab==="ot"?"":"none";
+  document.getElementById("ot-tab-content-tx").style.display = tab==="tx"?"":"none";
+}
+
+function openOtAdd(){
+  document.getElementById("ot-date").value = new Date().toISOString().slice(0,10);
+  document.getElementById("ot-hours").value = "";
+  document.getElementById("ot-note").value = "";
+  document.getElementById("ot-add-modal").classList.add("open");
+}
+function closeOtAdd(){ document.getElementById("ot-add-modal").classList.remove("open"); }
+
+function saveOtAdd(){
+  const date = document.getElementById("ot-date").value;
+  const hours = parseFloat(document.getElementById("ot-hours").value);
+  const note = document.getElementById("ot-note").value.trim();
+  if(!date){ alert("请选择日期"); return; }
+  if(!hours || hours <= 0){ alert("请输入有效的加班时长"); return; }
+  const arr = getOvertimeList();
+  arr.push({ id: Date.now().toString(), date, hours, note });
+  saveOvertimeList(arr);
+  closeOtAdd();
+  renderOtPanel();
+  showToast("加班记录已保存");
+}
+
+function delOt(id){
+  if(!confirm("确认删除该加班记录？")) return;
+  saveOvertimeList(getOvertimeList().filter(r=>r.id!==id));
+  renderOtPanel();
+}
+
+function openTxAdd(){
+  const ot = getOvertimeList();
+  const tx = getTxList();
+  const avail = Math.max(0, ot.reduce((s,r)=>s+(+r.hours||0),0) - tx.reduce((s,r)=>s+(+r.hours||0),0));
+  document.getElementById("tx-avail-show").textContent = avail % 1 === 0 ? avail : avail.toFixed(1);
+  document.getElementById("tx-date").value = new Date().toISOString().slice(0,10);
+  document.getElementById("tx-hours").value = "";
+  document.getElementById("tx-note").value = "";
+  document.getElementById("tx-add-modal").classList.add("open");
+}
+function closeTxAdd(){ document.getElementById("tx-add-modal").classList.remove("open"); }
+
+function saveTxAdd(){
+  const date = document.getElementById("tx-date").value;
+  const hours = parseFloat(document.getElementById("tx-hours").value);
+  const note = document.getElementById("tx-note").value.trim();
+  if(!date){ alert("请选择日期"); return; }
+  if(!hours || hours <= 0){ alert("请输入有效的调休时长"); return; }
+  const ot = getOvertimeList();
+  const tx = getTxList();
+  const avail = Math.max(0, ot.reduce((s,r)=>s+(+r.hours||0),0) - tx.reduce((s,r)=>s+(+r.hours||0),0));
+  if(hours > avail){ alert(`当前可用调休仅剩 ${avail} 小时，无法使用 ${hours} 小时`); return; }
+  tx.push({ id: Date.now().toString(), date, hours, note });
+  saveTxList(tx);
+  closeTxAdd();
+  renderOtPanel();
+  showToast("调休记录已保存");
+}
+
+function delTx(id){
+  if(!confirm("确认删除该调休记录？")) return;
+  saveTxList(getTxList().filter(r=>r.id!==id));
+  renderOtPanel();
 }
 
 async function delR(id){
@@ -1420,7 +1972,7 @@ function switchView(v){
   document.getElementById("view-list").classList.toggle("active",v==="list");
   document.getElementById("tab-week").classList.toggle("active",v==="week");
   document.getElementById("tab-list").classList.toggle("active",v==="list");
-  if(v==="list") renderList();
+  if(v==="list"){ renderList(); renderOtPanel(); }
 }
 
 // ══════════════════════════════
@@ -1511,7 +2063,7 @@ function getDragTooltip(){
   return dragTooltip;
 }
 function createGhost(block, rec){
-  const typeColors = {"初中一对一":"#4A90D9","高中一对一":"#D9534A","一对多":"#534AB7"};
+  const typeColors = {"初中一对一":"#4A90D9","高中一对一":"#D9534A","初中一对多":"#3BA99C","高中一对多":"#E67E22"};
   const bgColor = typeColors[rec.type]||"#4A90D9";
   const h=block.getBoundingClientRect().height;
   const g=document.createElement("div");
@@ -1612,11 +2164,16 @@ async function initApp(){
 
   initSelects();
   renderCal();
+  // 移动端：DOM 稳定后再渲染一次，确保格子高度精确撑满屏幕
+  if (window.innerWidth <= 600) {
+    requestAnimationFrame(() => requestAnimationFrame(() => renderCal()));
+  }
   setTimeout(()=>{
     loadSalaryConfig();
     checkImportHistory();
     archiveLastMonth();
     recalcSalary();
+    renderOtPanel();
   }, 300);
 
   // 初次从本地同步到云端（云端为空时）
@@ -1647,6 +2204,17 @@ document.addEventListener("DOMContentLoaded",()=>{
     document.getElementById("login-user").focus();
   }
 });
+</script>
+
+<!-- PWA Service Worker 注册 -->
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js')
+      .then(reg => console.log('SW registered:', reg.scope))
+      .catch(err => console.log('SW registration failed:', err));
+  });
+}
 </script>
 </body>
 </html>
