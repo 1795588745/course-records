@@ -215,6 +215,13 @@ body{font-family:"PingFang SC","Microsoft YaHei",sans-serif;background:#f5f4f0;c
 .rule-info .ri-day{font-weight:600;color:#BA7517}
 .rule-info .ri-time{color:#888;font-size:12px}
 .rule-info .ri-detail{font-size:11px;color:#888;margin-top:2px}
+/* ── 星期多选 ── */
+.dayow-box{display:flex;gap:5px;flex-wrap:wrap;align-items:center}
+.dayow-box .dow-btn{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:8px;border:1px solid #d9d8d4;background:#fff;font-size:12px;cursor:pointer;user-select:none;transition:background .12s,border-color .12s,color .12s;font-family:inherit}
+.dayow-box .dow-btn.active{background:#534AB7;border-color:#534AB7;color:#fff;font-weight:600}
+.dayow-box .dow-btn:hover:not(.active){background:#EEEDFE;border-color:#c5c2e8}
+.dayow-box .dow-all{padding:0 8px;width:auto;font-size:11px;color:#BA7517;border-color:#f5dfa0;background:#fffbf2}
+.dayow-box .dow-all:hover{background:#fff8e7;border-color:#f0ad4e}
 
 /* ═══ 登录界面 ═══ */
 .login-screen{position:fixed;inset:0;background:#f5f4f0;z-index:10000;display:flex;align-items:center;justify-content:center;flex-direction:column}
@@ -604,8 +611,17 @@ body{font-family:"PingFang SC","Microsoft YaHei",sans-serif;background:#f5f4f0;c
       </div>
       <div class="frow" id="date-row">
         <div class="fg" id="date-fg"><label>上课日期</label><input type="date" id="i-date"></div>
-        <div class="fg" id="dayow-fg" style="display:none"><label>星期几</label>
-          <select id="i-dayow"><option value="1">周一</option><option value="2">周二</option><option value="3">周三</option><option value="4">周四</option><option value="5">周五</option><option value="6">周六</option><option value="7">周日</option></select>
+        <div class="fg" id="dayow-fg" style="display:none"><label>重复星期</label>
+          <div class="dayow-box">
+            <button type="button" class="dow-btn" data-dow="1" onclick="toggleDow(1)">一</button>
+            <button type="button" class="dow-btn" data-dow="2" onclick="toggleDow(2)">二</button>
+            <button type="button" class="dow-btn" data-dow="3" onclick="toggleDow(3)">三</button>
+            <button type="button" class="dow-btn" data-dow="4" onclick="toggleDow(4)">四</button>
+            <button type="button" class="dow-btn" data-dow="5" onclick="toggleDow(5)">五</button>
+            <button type="button" class="dow-btn" data-dow="6" onclick="toggleDow(6)">六</button>
+            <button type="button" class="dow-btn" data-dow="7" onclick="toggleDow(7)">日</button>
+            <button type="button" class="dow-btn dow-all" onclick="toggleAllDow()">每天</button>
+          </div>
         </div>
         <div class="fg"><label>开始时间</label><input type="time" id="i-start" step="300"></div>
       </div>
@@ -1212,9 +1228,12 @@ function generateFromRules(){
   const days = Array.from({length:7},(_,i)=>{ const d=new Date(weekStart); d.setDate(d.getDate()+i); return d; });
 
   RULES.forEach(rule=>{
+    // 兼容旧数据：dayOfWeek(单值) → daysOfWeek(数组)
+    const dows = rule.daysOfWeek && rule.daysOfWeek.length ? rule.daysOfWeek : (rule.dayOfWeek ? [rule.dayOfWeek] : []);
+    if(!dows.length) return;
     days.forEach(d=>{
       const dow = (d.getDay()||7);
-      if(dow !== rule.dayOfWeek) return;
+      if(!dows.includes(dow)) return;
       const dateStr = dkey(d);
       if(rule.startDate && dateStr < rule.startDate) return;
       if(rule.endDate && dateStr > rule.endDate) return;
@@ -1373,7 +1392,7 @@ function openAddRule(){
   document.getElementById("date-fg").style.display="none";
   document.getElementById("dayow-fg").style.display="";
   document.getElementById("rule-date-row").style.display="";
-  document.getElementById("i-dayow").value="1";
+  setSelectedDows([]);
   document.getElementById("i-rule-start").value="";
   document.getElementById("i-rule-end").value="";
   document.getElementById("i-start").value="";
@@ -1395,7 +1414,9 @@ function editRule(rid){
   document.getElementById("date-fg").style.display="none";
   document.getElementById("dayow-fg").style.display="";
   document.getElementById("rule-date-row").style.display="";
-  document.getElementById("i-dayow").value=rule.dayOfWeek;
+  // 兼容旧数据：dayOfWeek(单值) → daysOfWeek(数组)
+  const dows = rule.daysOfWeek && rule.daysOfWeek.length ? rule.daysOfWeek : (rule.dayOfWeek ? [rule.dayOfWeek] : []);
+  setSelectedDows(dows);
   document.getElementById("i-start").value=rule.startTime;
   document.getElementById("i-rule-start").value=rule.startDate||"";
   document.getElementById("i-rule-end").value=rule.endDate||"";
@@ -1451,6 +1472,40 @@ function onRepeatToggle(){
   document.getElementById("date-fg").style.display = on?"none":"";
   document.getElementById("dayow-fg").style.display = on?"":"none";
   document.getElementById("rule-date-row").style.display = on?"":"none";
+  if(on){
+    // 预选当前选定日期的星期
+    const dateVal = document.getElementById("i-date").value;
+    if(dateVal){
+      const d = new Date(dateVal+"T00:00:00");
+      const dow = d.getDay()||7;
+      setSelectedDows([dow]);
+    } else {
+      setSelectedDows([]);
+    }
+  }
+}
+
+// ── 多选星期 工具函数 ──
+function toggleDow(dow){
+  const btn = document.querySelector(`.dow-btn[data-dow="${dow}"]`);
+  if(!btn) return;
+  btn.classList.toggle("active");
+}
+
+function toggleAllDow(){
+  const btns = document.querySelectorAll(".dow-btn[data-dow]");
+  const allActive = [...btns].every(b=>b.classList.contains("active"));
+  btns.forEach(b=>b.classList.toggle("active", !allActive));
+}
+
+function getSelectedDows(){
+  return [...document.querySelectorAll(".dow-btn[data-dow].active")].map(b=>parseInt(b.dataset.dow));
+}
+
+function setSelectedDows(dows){
+  document.querySelectorAll(".dow-btn[data-dow]").forEach(b=>{
+    b.classList.toggle("active", dows.includes(parseInt(b.dataset.dow)));
+  });
 }
 
 function closeAdd(){ document.getElementById("add-modal").classList.remove("open"); }
@@ -1522,10 +1577,11 @@ async function saveRecord(){
 
   // ── 规则模式 ──
   if(isRuleMode){
-    const dayow=parseInt(document.getElementById("i-dayow").value);
+    const daysOfWeek = getSelectedDows();
+    if(!daysOfWeek.length){ alert("请选择至少一个重复星期"); return; }
     const ruleStart=document.getElementById("i-rule-start").value||null;
     const ruleEnd=document.getElementById("i-rule-end").value||null;
-    const newRule = {id: editingRuleId!=null?editingRuleId:("R_"+Date.now()+"_"+Math.floor(Math.random()*1e9)), dayOfWeek:dayow, startTime:start, type, duration:dur, students:stus, note, startDate:ruleStart, endDate:ruleEnd};
+    const newRule = {id: editingRuleId!=null?editingRuleId:("R_"+Date.now()+"_"+Math.floor(Math.random()*1e9)), daysOfWeek, startTime:start, type, duration:dur, students:stus, note, startDate:ruleStart, endDate:ruleEnd};
     if(editingRuleId!=null){
       const i=RULES.findIndex(r=>String(r.id)===String(editingRuleId));
       if(i>-1){
@@ -1541,10 +1597,11 @@ async function saveRecord(){
   // ── 每周重复 → 创建规则 ──
   const doRepeat = document.getElementById("i-repeat").checked;
   if(doRepeat && editId===null){
-    const dayow=parseInt(document.getElementById("i-dayow").value);
+    const daysOfWeek = getSelectedDows();
+    if(!daysOfWeek.length){ alert("请选择至少一个重复星期"); return; }
     const ruleStart=document.getElementById("i-rule-start").value||null;
     const ruleEnd=document.getElementById("i-rule-end").value||null;
-    const newRule = {id:"R_"+Date.now()+"_"+Math.floor(Math.random()*1e9),dayOfWeek:dayow,startTime:start,type,duration:dur,students:stus,note,startDate:ruleStart,endDate:ruleEnd};
+    const newRule = {id:"R_"+Date.now()+"_"+Math.floor(Math.random()*1e9),daysOfWeek,startTime:start,type,duration:dur,students:stus,note,startDate:ruleStart,endDate:ruleEnd};
     RULES.push(newRule);
     saveRules();
     closeAdd(); refresh();
@@ -2010,7 +2067,10 @@ function renderRuleList(){
     const stuText=r.students.slice(0,4).join("、")+(r.students.length>4?"…":"");
     let dateRange="";
     if(r.startDate||r.endDate){ const s=r.startDate?formatDateCN(r.startDate):"开始"; const e=r.endDate?formatDateCN(r.endDate):"以后"; dateRange=` · ${s} ~ ${e}`; }
-    return `<div class="rule-row"><div class="rule-info"><span class="ri-day">每${DAY_NAMES[r.dayOfWeek-1]}</span><span class="ri-time">${r.startTime} · ${r.duration}h · ${r.type}</span><div class="ri-detail">${stuText}${r.note?" · "+r.note:""}${dateRange}</div></div><button class="btn-edit-sm" onclick="editRule('${r.id}')">编辑</button><button class="btn-danger-sm" onclick="deleteRule('${r.id}')">删除</button></div>`;
+    // 兼容旧数据
+    const dows = r.daysOfWeek && r.daysOfWeek.length ? r.daysOfWeek : (r.dayOfWeek ? [r.dayOfWeek] : []);
+    const dayLabel = dows.length===7?"每天":dows.length===0?"未设置":("每"+dows.map(d=>DAY_NAMES[d-1]).join(""));
+    return `<div class="rule-row"><div class="rule-info"><span class="ri-day">${dayLabel}</span><span class="ri-time"> ${r.startTime} · ${r.duration}h · ${r.type}</span><div class="ri-detail">${stuText}${r.note?" · "+r.note:""}${dateRange}</div></div><button class="btn-edit-sm" onclick="editRule('${r.id}')">编辑</button><button class="btn-danger-sm" onclick="deleteRule('${r.id}')">删除</button></div>`;
   }).join("");
 }
 
