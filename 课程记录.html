@@ -1178,11 +1178,15 @@ function calcFee(type,dur,cnt){
   if(type==="高中一对一") return FEE_RULES["高中一对一"][dur]||0;
   if(type==="初中一对多") {
     if(dur===1.5) return 97.5;
-    return cnt>0?(FEE_RULES["初中一对多"][Math.min(cnt,4)]||0):0;
+    if(!cnt) return 0;
+    if(cnt>4) return 130+(cnt-4)*10;
+    return FEE_RULES["初中一对多"][cnt]||0;
   }
   if(type==="高中一对多") {
     if(dur===1.5) return 120;
-    return cnt>0?(FEE_RULES["高中一对多"][Math.min(cnt,4)]||0):0;
+    if(!cnt) return 0;
+    if(cnt>4) return 160+(cnt-4)*10;
+    return FEE_RULES["高中一对多"][cnt]||0;
   }
   return 0;
 }
