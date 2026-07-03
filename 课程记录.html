@@ -215,7 +215,8 @@ body{font-family:"PingFang SC","Microsoft YaHei",sans-serif;background:#f5f4f0;c
 .rule-info .ri-day{font-weight:600;color:#BA7517}
 .rule-info .ri-time{color:#888;font-size:12px}
 .rule-info .ri-detail{font-size:11px;color:#888;margin-top:2px}
-/* ── 星期多选 ── */
+
+/* ═══ 多天选择按钮 ═══ */
 .dayow-box{display:flex;gap:5px;flex-wrap:wrap;align-items:center}
 .dayow-box .dow-btn{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:8px;border:1px solid #d9d8d4;background:#fff;font-size:12px;cursor:pointer;user-select:none;transition:background .12s,border-color .12s,color .12s;font-family:inherit}
 .dayow-box .dow-btn.active{background:#534AB7;border-color:#534AB7;color:#fff;font-weight:600}
@@ -505,6 +506,7 @@ body{font-family:"PingFang SC","Microsoft YaHei",sans-serif;background:#f5f4f0;c
     <button class="today-btn" onclick="goToday()">今天</button>
   </div>
   <div class="toolbar-right">
+    <button class="btn btn-outline" id="btn-tier-mgr" style="display:none" onclick="openTierMgr()">课时费分档</button>
     <button class="btn btn-primary" onclick="openAdd()">＋ 添加课程</button>
     <div class="view-tabs">
       <button class="view-tab active" id="tab-week" onclick="switchView('week')">周视图</button>
@@ -630,8 +632,11 @@ body{font-family:"PingFang SC","Microsoft YaHei",sans-serif;background:#f5f4f0;c
         <div class="fg"><label>截止日期（可选）</label><input type="date" id="i-rule-end"></div>
       </div>
       <div class="frow">
-        <div class="fg"><label>课程类型</label><select id="i-type" onchange="onTypeChange()"><option value="初中一对一">初中一对一</option><option value="高中一对一">高中一对一</option><option value="初中一对多">初中一对多</option><option value="高中一对多">高中一对多</option></select></div>
+        <div class="fg"><label>课程类型</label><select id="i-type" onchange="onTypeChange()"></select></div>
         <div class="fg"><label>课时时长</label><select id="i-dur" onchange="calcPreview()"><option value="2">2小时</option><option value="1.5">1.5小时</option></select></div>
+      </div>
+      <div class="frow" id="fee-tier-row" style="display:none">
+        <div class="fg"><label>课时费分档</label><select id="i-tier" onchange="calcPreview()"></select></div>
       </div>
       <div class="frow full"><div class="fg"><label>到课学员（可多选）</label><div class="stu-box" id="stu-box"></div></div></div>
       <div class="fee-bar"><span style="font-size:12px;color:#888">预计课时费：</span><span class="famt" id="fee-amt">¥0</span><span class="frule" id="fee-rule"></span></div>
@@ -747,6 +752,22 @@ body{font-family:"PingFang SC","Microsoft YaHei",sans-serif;background:#f5f4f0;c
   </div>
 </div>
 
+<!-- ═══ 课时费分档管理 模态框 ═══ -->
+<div class="modal-bg" id="tier-mgr-modal" onclick="bgClose('tier-mgr-modal')">
+  <div class="modal" style="max-width:640px" onclick="event.stopPropagation()">
+    <div class="mhead"><h2>课时费分档管理</h2><button class="mclose" onclick="bgClose('tier-mgr-modal')">×</button></div>
+    <div class="mbody" id="tier-mgr-body"></div>
+  </div>
+</div>
+
+<!-- ═══ 课时费分档编辑 模态框 ═══ -->
+<div class="modal-bg" id="tier-edit-modal" onclick="bgClose('tier-edit-modal')">
+  <div class="modal" style="max-width:600px" onclick="event.stopPropagation()">
+    <div class="mhead"><h2 id="tier-edit-title">新建分档</h2><button class="mclose" onclick="bgClose('tier-edit-modal')">×</button></div>
+    <div class="mbody" id="tier-edit-body"></div>
+  </div>
+</div>
+
 </div><!-- /app-root -->
 
 <script>
@@ -792,8 +813,11 @@ function isLoggedIn(){
 
 // 迁移旧全局键数据到当前用户键下
 function migrateOldData(){
-  // 旧全局键 → 新按用户键
-  const map = [
+  const currentUser = getCurrentUser();
+  const isFang = currentUser === "方老师";
+
+  // ── 第1类：明确映射的旧全局键（知道对应哪个新键）──
+  const mappedKeys = [
     ["_klrecs", STORAGE_KEY_RECS],
     ["_klrules", STORAGE_KEY_RULES],
     ["_kldetached", DETACHED_KEY],
@@ -801,15 +825,37 @@ function migrateOldData(){
     ["salary_history", SALARY_KEY],
     ["salary_config", SALARY_CFG_KEY]
   ];
-  let migrated = false;
-  map.forEach(([oldKey, newKey]) => {
+
+  // ── 第2类：更早期的杂名旧键（不知道结构，只删不导）──
+  const strayKeys = ["RECS","RULES","records","rules","courses","courseRules",
+    "_recs","_rules","klrecs","klrules","课程记录","排课规则",
+    "course_records","course_rules","schedule_recs","schedule_rules"];
+
+  let migrated = false, cleaned = false;
+
+  // 处理映射类旧键
+  mappedKeys.forEach(([oldKey, newKey]) => {
     const oldVal = localStorage.getItem(oldKey);
-    if(oldVal && !localStorage.getItem(newKey)){
+    if(!oldVal) return;
+    // 只迁移到方老师名下
+    if(isFang && !localStorage.getItem(newKey)){
       localStorage.setItem(newKey, oldVal);
       migrated = true;
     }
+    localStorage.removeItem(oldKey);
+    cleaned = true;
   });
-  if(migrated) console.log("📦 已将旧数据迁移到用户「"+getCurrentUser()+"」名下");
+
+  // 清除杂名旧键（不导入，只删除，避免串号）
+  strayKeys.forEach(k => {
+    if(localStorage.getItem(k) !== null){
+      localStorage.removeItem(k);
+      cleaned = true;
+    }
+  });
+
+  if(migrated) console.log("📦 已将旧数据迁移到用户「方老师」名下");
+  else if(cleaned) console.log("🧹 已清理旧版全局键（防止新账号串数据）");
 }
 
 function showApp(){
@@ -856,6 +902,45 @@ function showLogin(){
   document.getElementById("login-user").focus();
 }
 
+// ═══ 强力清理：删除所有不属于当前用户的旧版全局键 ═══
+function cleanupAllOldKeys(){
+  const user = getCurrentUser();
+  if(!user) return;
+  // 所有已知的旧版全局键名（不含 u_ 前缀的）
+  const oldKeys = [
+    "_klrecs","_klrules","_kldetached",
+    "RECS","RULES","records","rules","courses","courseRules",
+    "_recs","_rules","klrecs","klrules","课程记录","排课规则",
+    "course_records","course_rules","schedule_recs","schedule_rules",
+    "student_list","salary_history","salary_config",
+    "overtime","txrest","fee_tiers"
+  ];
+  let cleaned = 0;
+  oldKeys.forEach(k => {
+    if(localStorage.getItem(k) !== null){
+      console.warn("🧹 删除旧全局键: "+k);
+      localStorage.removeItem(k);
+      cleaned++;
+    }
+  });
+  // 扫描所有 localStorage 键，报告异常键
+  for(let i=0; i<localStorage.length; i++){
+    const key = localStorage.key(i);
+    // 跳过当前用户的键
+    if(key.startsWith("u_"+user+"_")) continue;
+    // 跳过系统键
+    if(key.startsWith("sb_") || key === "_auth_user" || key.startsWith("course-records_")) continue;
+    // 其他 u_ 开头的键是其他用户的，保留（不删）
+    if(key.startsWith("u_")){
+      console.log("ℹ️ 检测到其他用户数据键: "+key+" （已保留）");
+      continue;
+    }
+    // 剩余的未知键，记录日志但不删（安全起见）
+    console.log("ℹ️ 未知 localStorage 键: "+key);
+  }
+  if(cleaned) console.log("🧹 共清理 "+cleaned+" 个旧全局键");
+}
+
 async function doRegister(){
   const user = document.getElementById("reg-user").value.trim();
   const pass = document.getElementById("reg-pass").value;
@@ -882,7 +967,7 @@ async function doRegister(){
 // ══════════════════════════════
 //  本地数据存储（localStorage）—— 按用户隔离键名
 // ══════════════════════════════
-let STORAGE_KEY_RECS, STORAGE_KEY_RULES, DETACHED_KEY, STUDENT_LIST_KEY, SALARY_KEY, SALARY_CFG_KEY, OT_KEY, TX_KEY;
+let STORAGE_KEY_RECS, STORAGE_KEY_RULES, DETACHED_KEY, STUDENT_LIST_KEY, SALARY_KEY, SALARY_CFG_KEY, OT_KEY, TX_KEY, FEE_TIERS_KEY;
 
 function setUserKeys(username){
   const p = "u_" + username + "_";
@@ -894,6 +979,47 @@ function setUserKeys(username){
   SALARY_CFG_KEY = p + "salary_cfg";
   OT_KEY = p + "overtime";
   TX_KEY = p + "txrest";
+  FEE_TIERS_KEY = p + "fee_tiers";
+}
+
+// 初始化新用户的默认分档（非方老师账号）
+function getDefaultFeeTiers(){
+  return [{
+    id: "t_default",
+    name: "默认课时费",
+    rates: JSON.parse(JSON.stringify(FEE_RULES))
+  }];
+}
+
+// 加载当前用户的分档列表
+function loadFeeTiers(){
+  try {
+    return JSON.parse(localStorage.getItem(FEE_TIERS_KEY)||"[]");
+  } catch(e){ return []; }
+}
+
+// 保存分档列表
+function saveFeeTiers(tiers){
+  localStorage.setItem(FEE_TIERS_KEY, JSON.stringify(tiers));
+  scheduleCloudSync();
+}
+
+// 获取当前生效的费率规则（方老师用硬编码，其他用户用选中分档）
+let currentFeeTierId = null;
+function getActiveFeeRules(){
+  if(getCurrentUser()==="方老师") return FEE_RULES;
+  const tiers = loadFeeTiers();
+  if(!tiers.length) return FEE_RULES; // 回退默认
+  const tid = currentFeeTierId || tiers[0].id;
+  const tier = tiers.find(t=>t.id===tid);
+  return tier ? tier.rates : FEE_RULES;
+}
+
+function getActiveFeeTierId(){
+  if(getCurrentUser()==="方老师") return "__builtin__";
+  const tiers = loadFeeTiers();
+  if(!tiers.length) return "__builtin__";
+  return currentFeeTierId || tiers[0].id;
 }
 
 function loadRecs(){
@@ -917,32 +1043,37 @@ function saveRules(){
 
 // ── 数据恢复：扫描旧键名迁移数据 ──
 function recoverData(){
+  // ★ 只有方老师账号才允许恢复旧数据，防止串号
+  if(getCurrentUser() !== "方老师") return;
   let recovered = false;
 
   // 如果当前键已有数据，跳过恢复
   if(RECS.length > 0 && RULES.length > 0) return;
 
-  // 候选旧键名列表（按可能性排序）
+  // 已迁移的旧全局键（已在 migrateOldData 中处理，这里显式排除避免串号）
+  const migratedKeys = ["_klrecs","_klrules","_kldetached","student_list","salary_history","salary_config"];
+
+  // 候选旧键名列表 — 只扫描这些已知的旧键，不乱扫
   const candidateKeys = ["RECS","RULES","records","rules","courses","courseRules",
     "_recs","_rules","klrecs","klrules","课程记录","排课规则",
     "course_records","course_rules","schedule_recs","schedule_rules"];
 
-  for(let i = 0; i < localStorage.length; i++){
-    const key = localStorage.key(i);
-    if(!key || key === STORAGE_KEY_RECS || key === STORAGE_KEY_RULES) continue;
-    if(key.startsWith(DETACHED_KEY) || key.startsWith(STUDENT_LIST_KEY) ||
-       key.startsWith(SALARY_KEY) || key.startsWith("sb_") || key.startsWith("auth_")) continue;
-    // 跳过其他用户的隔离数据（u_ 前缀的键），避免数据串号
-    if(key.startsWith("u_")) continue;
+  for(const key of candidateKeys){
+    if(key === STORAGE_KEY_RECS || key === STORAGE_KEY_RULES) continue;
+    if(migratedKeys.includes(key)) continue;  // 跳过已迁移的旧键
+
+    const raw = localStorage.getItem(key);
+    if(!raw) continue;
 
     try {
-      const val = JSON.parse(localStorage.getItem(key));
+      const val = JSON.parse(raw);
       if(!Array.isArray(val) || val.length === 0) continue;
 
       // 判断是否为课程记录：有 date + startTime 字段
       if(!RECS.length && val.length > 0 && val[0].date && val[0].startTime && val[0].students){
         RECS = val;
         saveRecs();
+        localStorage.removeItem(key);  // 恢复后清除旧键
         recovered = true;
         console.log("✅ 从旧键 '"+key+"' 恢复了 "+RECS.length+" 条课程记录");
         continue;
@@ -952,6 +1083,7 @@ function recoverData(){
       if(!RULES.length && val.length > 0 && val[0].dayOfWeek !== undefined && val[0].startTime && val[0].students){
         RULES = val;
         saveRules();
+        localStorage.removeItem(key);  // 恢复后清除旧键
         recovered = true;
         console.log("✅ 从旧键 '"+key+"' 恢复了 "+RULES.length+" 条排课规则");
         continue;
@@ -1038,7 +1170,8 @@ async function pushToCloud(){
       salary_history: getSalaryHistory(),
       salary_config: JSON.parse(localStorage.getItem(SALARY_CFG_KEY)||"{}"),
       overtime: getOvertimeList(),
-      txrest: getTxList()
+      txrest: getTxList(),
+      fee_tiers: loadFeeTiers()
     };
     await sb.from("app_state").upsert({id:1, data:allData, updated_at:new Date().toISOString()});
     localStorage.setItem("_cloud_state","synced");
@@ -1060,9 +1193,12 @@ async function loadFromCloud(){
   _loading = true;
   try {
   const user = getCurrentUser();
-  if(!user){ return false; }
+  if(!user){ console.log("☁️ loadFromCloud: 无用户，跳过"); return false; }
+  console.log("☁️ loadFromCloud: 正在为「"+user+"」加载云端数据...");
   const cloud = await fetchFromCloudRaw();
-  if(!cloud || !cloud[user]){ return false; }
+  if(!cloud){ console.log("☁️ loadFromCloud: 云端无数据"); return false; }
+  console.log("☁️ loadFromCloud: 云端已有用户: "+Object.keys(cloud).join(", "));
+  if(!cloud[user]){ console.log("☁️ loadFromCloud: 云端没有「"+user+"」的数据"); return false; }
   const ud = cloud[user];
 
   // ═══ 后台迁移：旧版 "一对多" → "初中一对多" ═══
@@ -1078,12 +1214,12 @@ async function loadFromCloud(){
   // 合并到内存（不触发云端回推）
   let hasData = false;
   // ★ 本地有未推送的修改时，跳过 RECS/RULES/_detached 覆写，防止云端旧数据覆盖本地新改动
-  const dirtyState = localStorage.getItem("_cloud_state");
-  if(_hasUnpushedChanges || dirtyState === "dirty"){
+  const dirty = localStorage.getItem("_cloud_state");
+  if(_hasUnpushedChanges || dirty === "dirty"){
     console.log("⏸️ 本地有未推送修改，跳过云端 RECS/RULES 覆写");
     hasData = true; // 不覆写也不影响后续 refresh
-    // 标记未同步，稍后在 initApp 中主动推送到云端
-    if(!_hasUnpushedChanges && dirtyState === "dirty") _hasUnpushedChanges = true;
+    // 主动补推到云端
+    scheduleCloudSync();
   } else {
     if(ud.recs && Array.isArray(ud.recs)){ RECS = ud.recs; localStorage.setItem(STORAGE_KEY_RECS,JSON.stringify(RECS)); hasData = true; }
     if(ud.rules && Array.isArray(ud.rules)){ RULES = ud.rules; localStorage.setItem(STORAGE_KEY_RULES,JSON.stringify(RULES)); }
@@ -1101,6 +1237,7 @@ async function loadFromCloud(){
   if(ud.salary_config && typeof ud.salary_config==="object"){ localStorage.setItem(SALARY_CFG_KEY,JSON.stringify(ud.salary_config)); }
   if(ud.overtime && Array.isArray(ud.overtime)){ localStorage.setItem(OT_KEY,JSON.stringify(ud.overtime)); }
   if(ud.txrest && Array.isArray(ud.txrest)){ localStorage.setItem(TX_KEY,JSON.stringify(ud.txrest)); }
+  if(ud.fee_tiers && Array.isArray(ud.fee_tiers)){ localStorage.setItem(FEE_TIERS_KEY,JSON.stringify(ud.fee_tiers)); }
   if(hasData) console.log("☁️ 从云端加载了「"+user+"」的数据");
   return hasData;
   } finally {
@@ -1135,11 +1272,31 @@ function calcCellH() {
 
 let CELL_H = 60; // 初始值，待 DOM ready 后更新
 const DAY_NAMES = ["周一","周二","周三","周四","周五","周六","周日"];
+const ALL_GRADES = ["小学","初一","初二","初三","高一","高二","高三"];
+const ALL_TYPES = ALL_GRADES.flatMap(g=>[g+"一对一", g+"一对多"]);
+// 每一年级对应一个色系：小学-紫, 初一-蓝, 初二-青, 初三-绿, 高一-橙, 高二-红, 高三-玫红
+const GRADE_HUES = [270,210,190,160,30,10,350];
+function typeColor(type){
+  const idx = ALL_TYPES.indexOf(type);
+  if(idx<0) return "#4A90D9";
+  const gi = idx%7, isMulti = idx>=7;
+  const h = GRADE_HUES[gi];
+  return `hsl(${h},${isMulti?60:55}%,${isMulti?42:48}%)`;
+}
+function typeColorBg(type){
+  const idx = ALL_TYPES.indexOf(type);
+  if(idx<0) return "#dbe9f8";
+  const gi = idx%7, isMulti = idx>=7;
+  const h = GRADE_HUES[gi];
+  return `hsl(${h},${isMulti?45:40}%,92%)`;
+}
 const FEE_RULES = {
-  "初中一对一":{2:130,1.5:97.5},
-  "高中一对一":{2:160,1.5:120},
-  "初中一对多":{1:130,2:160,3:190,4:210},
-  "高中一对多":{1:160,2:190,3:220,4:240}}
+  "小学一对一":{2:100,1.5:75},
+  "初一一对一":{2:130,1.5:97.5}, "初二一对一":{2:130,1.5:97.5}, "初三一对一":{2:130,1.5:97.5},
+  "高一一对一":{2:160,1.5:120}, "高二一对一":{2:160,1.5:120}, "高三一对一":{2:160,1.5:120},
+  "小学一对多":{1:100,2:130,3:160,4:180},
+  "初一一对多":{1:130,2:160,3:190,4:210}, "初二一对多":{1:130,2:160,3:190,4:210}, "初三一对多":{1:130,2:160,3:190,4:210},
+  "高一一对多":{1:160,2:190,3:220,4:240}, "高二一对多":{1:160,2:190,3:220,4:240}, "高三一对多":{1:160,2:190,3:220,4:240}}
 const DEFAULT_STUS = [
   {name:"吴彦希",grade:"junior"},{name:"管晨皓",grade:"junior"},{name:"俞跃",grade:"junior"},
   {name:"曹柯",grade:"junior"},{name:"林威宇",grade:"junior"},{name:"林允儿",grade:"junior"},
@@ -1174,21 +1331,18 @@ function saveDetached(){
 //  费用计算
 // ══════════════════════════════
 function calcFee(type,dur,cnt){
-  if(type==="初中一对一") return FEE_RULES["初中一对一"][dur]||0;
-  if(type==="高中一对一") return FEE_RULES["高中一对一"][dur]||0;
-  if(type==="初中一对多") {
-    if(dur===1.5) return 97.5;
-    if(!cnt) return 0;
-    if(cnt>4) return 130+cnt*10;
-    return FEE_RULES["初中一对多"][cnt]||0;
+  const rules = getActiveFeeRules();
+  const m = rules[type];
+  if(!m) return 0;
+  if(type.includes("一对一")) return m[dur]||0;
+  // 一对多
+  if(dur===1.5) return m[1.5]!==undefined ? m[1.5] : 0;
+  if(cnt>4){
+    // 超4人：底价 + 人数×10
+    const base = type.includes("高中")||type.includes("高一")||type.includes("高二")||type.includes("高三") ? 160 : 130;
+    return base + cnt * 10;
   }
-  if(type==="高中一对多") {
-    if(dur===1.5) return 120;
-    if(!cnt) return 0;
-    if(cnt>4) return 160+cnt*10;
-    return FEE_RULES["高中一对多"][cnt]||0;
-  }
-  return 0;
+  return cnt>0 ? (m[Math.min(cnt,4)]||0) : 0;
 }
 function p2(n){return String(n).padStart(2,"0")}
 function dkey(d){return `${d.getFullYear()}-${p2(d.getMonth()+1)}-${p2(d.getDate())}`}
@@ -1234,7 +1388,6 @@ function generateFromRules(){
   RULES.forEach(rule=>{
     // 兼容旧数据：dayOfWeek(单值) → daysOfWeek(数组)
     const dows = rule.daysOfWeek && rule.daysOfWeek.length ? rule.daysOfWeek : (rule.dayOfWeek ? [rule.dayOfWeek] : []);
-    if(!dows.length) return;
     days.forEach(d=>{
       const dow = (d.getDay()||7);
       if(!dows.includes(dow)) return;
@@ -1247,11 +1400,12 @@ function generateFromRules(){
       // 时间重叠检测：与已有记录 + 本轮已生成的课程
       if(isTimeConflict(dateStr, rule.startTime, rule.duration, null, newRecs)) return;
       const fee = calcFee(rule.type, rule.duration, rule.students.length);
+      const tierId = getActiveFeeTierId();
       newRecs.push({
         id: "r_"+Date.now()+"_"+Math.floor(Math.random()*1e9),
         date: dateStr, startTime: rule.startTime, type: rule.type,
         duration: rule.duration, students: [...rule.students],
-        fee: fee, note: rule.note||"", ruleId: rule.id
+        fee: fee, note: rule.note||"", ruleId: rule.id, tierId
       });
     });
   });
@@ -1273,20 +1427,6 @@ function timeToMinutes(t){
   if(!t) return 0;
   const [h,m]=t.split(":").map(Number);
   return h*60+m;
-}
-
-// ── 课程类型 → 颜色 class 映射（日历 cj/cs/cm/ch，列表 bj/bs/bm/bh） ──
-function getTypeClass(type){
-  if(!type) return "cj";
-  const t = type;
-  // 一对多
-  if(t.includes("一对多")||t.includes("1对多")){
-    return (t.includes("高中")||t.includes("高")) ? "ch" : "cm";
-  }
-  // 高中一对一
-  if(t.includes("高中")||t.includes("高")) return "cs";
-  // 初中一对一 / 默认
-  return "cj";
 }
 
 // ══════════════════════════════
@@ -1342,12 +1482,12 @@ function renderCal(){
     if(!col) return;
     const topPx = (sh-HOUR_START)*CELL_H + sm/60*CELL_H;
     const heightPx = Math.max(r.duration*CELL_H-4, 24);
-    const typeClass = getTypeClass(r.type);
+    const bgColor = typeColor(r.type);
     const stuText = r.students.join("、");
     const isFromRule = !!r.ruleId;
     const block = document.createElement("div");
-    block.className = `cb ${typeClass}${isFromRule?" from-rule":""}`;
-    block.style.top = topPx+"px"; block.style.height = heightPx+"px";
+    block.className = `cb${isFromRule?" from-rule":""}`;
+    block.style.cssText = `top:${topPx}px;height:${heightPx}px;background:${bgColor};color:#fff`;
     block.innerHTML = `<div class="cb-time">${r.startTime}–${endTime(r.startTime,r.duration)} (${r.duration}h)</div><div class="cb-stu">${stuText}</div>${heightPx>36?`<div class="cb-fee">¥${r.fee}</div>`:""}`;
     block.dataset.recId = r.id;
     block.onclick = (e)=>{ e.stopPropagation(); if(block._wasDragged){ block._wasDragged=false; return; } openEdit(r.id); };
@@ -1368,6 +1508,27 @@ let editId=null;
 let isRuleMode=false;
 let editingRuleId=null;
 
+// ── 多天选择按钮 ──
+function toggleDow(dow){
+  const btn = document.querySelector(`.dow-btn[data-dow="${dow}"]`);
+  if(!btn) return;
+  btn.classList.toggle("active");
+}
+function toggleAllDow(){
+  const btns = document.querySelectorAll(".dow-btn[data-dow]");
+  const allActive = [...btns].every(b=>b.classList.contains("active"));
+  btns.forEach(b=>{ if(allActive) b.classList.remove("active"); else b.classList.add("active"); });
+}
+function getSelectedDows(){
+  return [...document.querySelectorAll(".dow-btn[data-dow].active")].map(b=>parseInt(b.dataset.dow));
+}
+function setDowButtons(dows){
+  document.querySelectorAll(".dow-btn[data-dow]").forEach(b=>{
+    if(dows.includes(parseInt(b.dataset.dow))) b.classList.add("active");
+    else b.classList.remove("active");
+  });
+}
+
 function openAdd(){
   editId=null; isRuleMode=false; editingRuleId=null;
   document.getElementById("add-title").textContent="添加课程";
@@ -1380,10 +1541,11 @@ function openAdd(){
   document.getElementById("rule-warn").style.display="none";
   document.getElementById("i-date").value=dkey(new Date());
   document.getElementById("i-start").value="";
-  document.getElementById("i-type").value="初中一对一";
+  document.getElementById("i-type").value="初一一对一";
   document.getElementById("i-dur").value="2";
   document.getElementById("i-note").value="";
   buildStuBox([]); calcPreview();
+  refreshTierSelect();
   document.getElementById("add-modal").classList.add("open");
 }
 
@@ -1396,15 +1558,16 @@ function openAddRule(){
   document.getElementById("date-fg").style.display="none";
   document.getElementById("dayow-fg").style.display="";
   document.getElementById("rule-date-row").style.display="";
-  setSelectedDows([]);
+  setDowButtons([1]);
   document.getElementById("i-rule-start").value="";
   document.getElementById("i-rule-end").value="";
   document.getElementById("i-start").value="";
-  document.getElementById("i-type").value="初中一对一";
+  document.getElementById("i-type").value="初一一对一";
   document.getElementById("i-dur").value="2";
   document.getElementById("i-note").value="";
   document.getElementById("rule-warn").style.display="none";
   buildStuBox([]); calcPreview();
+  refreshTierSelect();
   document.getElementById("add-modal").classList.add("open");
 }
 
@@ -1418,9 +1581,7 @@ function editRule(rid){
   document.getElementById("date-fg").style.display="none";
   document.getElementById("dayow-fg").style.display="";
   document.getElementById("rule-date-row").style.display="";
-  // 兼容旧数据：dayOfWeek(单值) → daysOfWeek(数组)
-  const dows = rule.daysOfWeek && rule.daysOfWeek.length ? rule.daysOfWeek : (rule.dayOfWeek ? [rule.dayOfWeek] : []);
-  setSelectedDows(dows);
+  setDowButtons(rule.daysOfWeek && rule.daysOfWeek.length ? rule.daysOfWeek : (rule.dayOfWeek ? [rule.dayOfWeek] : [1]));
   document.getElementById("i-start").value=rule.startTime;
   document.getElementById("i-rule-start").value=rule.startDate||"";
   document.getElementById("i-rule-end").value=rule.endDate||"";
@@ -1429,6 +1590,7 @@ function editRule(rid){
   document.getElementById("i-note").value=rule.note||"";
   document.getElementById("rule-warn").style.display="none";
   buildStuBox(rule.students||[]); calcPreview();
+  refreshTierSelect();
   document.getElementById("add-modal").classList.add("open");
 }
 
@@ -1445,10 +1607,11 @@ function onSlotClick(date,hour,e){
   document.getElementById("rule-warn").style.display="none";
   document.getElementById("i-date").value=date;
   document.getElementById("i-start").value=`${p2(hour)}:00`;
-  document.getElementById("i-type").value="初中一对一";
+  document.getElementById("i-type").value="初一一对一";
   document.getElementById("i-dur").value="2";
   document.getElementById("i-note").value="";
   buildStuBox([]); calcPreview();
+  refreshTierSelect();
   document.getElementById("add-modal").classList.add("open");
 }
 
@@ -1467,7 +1630,17 @@ function openEdit(id){
   document.getElementById("i-type").value=r.type;
   document.getElementById("i-dur").value=r.duration;
   document.getElementById("i-note").value=r.note||"";
-  buildStuBox(r.students||[]); calcPreview();
+  buildStuBox(r.students||[]);
+  // 恢复分档选择
+  if(r.tierId) currentFeeTierId = r.tierId;
+  calcPreview();
+  refreshTierSelect();
+  // 编辑时恢复课程中保存的分档
+  if(r.tierId && getCurrentUser()!=="方老师"){
+    const sel = document.getElementById("i-tier");
+    if(sel.querySelector(`option[value="${r.tierId}"]`)) sel.value = r.tierId;
+    currentFeeTierId = r.tierId;
+  }
   document.getElementById("add-modal").classList.add("open");
 }
 
@@ -1476,49 +1649,45 @@ function onRepeatToggle(){
   document.getElementById("date-fg").style.display = on?"none":"";
   document.getElementById("dayow-fg").style.display = on?"":"none";
   document.getElementById("rule-date-row").style.display = on?"":"none";
-  if(on){
-    // 预选当前选定日期的星期
-    const dateVal = document.getElementById("i-date").value;
-    if(dateVal){
-      const d = new Date(dateVal+"T00:00:00");
-      const dow = d.getDay()||7;
-      setSelectedDows([dow]);
-    } else {
-      setSelectedDows([]);
-    }
+  if(on) setDowButtons([1]);
+}
+
+// 刷新分档选择器（非方老师账号可见）
+function refreshTierSelect(){
+  const row = document.getElementById("fee-tier-row");
+  const sel = document.getElementById("i-tier");
+  if(getCurrentUser()==="方老师"){
+    row.style.display = "none";
+    currentFeeTierId = null;
+    return;
   }
-}
-
-// ── 多选星期 工具函数 ──
-function toggleDow(dow){
-  const btn = document.querySelector(`.dow-btn[data-dow="${dow}"]`);
-  if(!btn) return;
-  btn.classList.toggle("active");
-}
-
-function toggleAllDow(){
-  const btns = document.querySelectorAll(".dow-btn[data-dow]");
-  const allActive = [...btns].every(b=>b.classList.contains("active"));
-  btns.forEach(b=>b.classList.toggle("active", !allActive));
-}
-
-function getSelectedDows(){
-  return [...document.querySelectorAll(".dow-btn[data-dow].active")].map(b=>parseInt(b.dataset.dow));
-}
-
-function setSelectedDows(dows){
-  document.querySelectorAll(".dow-btn[data-dow]").forEach(b=>{
-    b.classList.toggle("active", dows.includes(parseInt(b.dataset.dow)));
-  });
+  row.style.display = "";
+  const tiers = loadFeeTiers();
+  if(!tiers.length){
+    saveFeeTiers(getDefaultFeeTiers());
+    tiers.length = 0; tiers.push(...getDefaultFeeTiers());
+  }
+  sel.innerHTML = tiers.map(t=>`<option value="${t.id}">${t.name}</option>`).join("");
+  // 恢复上次选择或默认第一个
+  if(currentFeeTierId && tiers.find(t=>t.id===currentFeeTierId)){
+    sel.value = currentFeeTierId;
+  } else if(tiers.length){
+    sel.value = tiers[0].id;
+    currentFeeTierId = tiers[0].id;
+  }
+  sel.onchange = function(){
+    currentFeeTierId = sel.value;
+    calcPreview();
+  };
 }
 
 function closeAdd(){ document.getElementById("add-modal").classList.remove("open"); }
 
 function buildStuBox(checked){
   const box=document.getElementById("stu-box");
-  // 根据当前课程类型过滤可选的学员年级（兼容"初一/二/三"和"初中"两种格式）
+  // 根据当前课程类型过滤可选的学员年级
   const type=document.getElementById("i-type").value;
-  const gradeNeed=type.includes("高一")||type.includes("高二")||type.includes("高三")||type.includes("高中")?"senior":type.includes("初一")||type.includes("初二")||type.includes("初三")||type.includes("初中")?"junior":null;
+  const gradeNeed=type.includes("高一")||type.includes("高二")||type.includes("高三")||type.includes("高中")?"senior":type.includes("初一")||type.includes("初二")||type.includes("初三")||type.includes("初中")||type.includes("小学")?"junior":null;
   let candidates=STUS;
   if(gradeNeed) candidates=STUS.filter(s=>s.grade===gradeNeed);
   // 只保留符合年级的已选学员
@@ -1535,20 +1704,22 @@ function calcPreview(){
   const cnt=getChecked().length;
   const fee=calcFee(type,dur,cnt);
   document.getElementById("fee-amt").textContent="¥"+fee;
-  document.getElementById("fee-rule").textContent=(type==="初中一对多"||type==="高中一对多")?`${cnt}人 → ${fee}元`:`${dur}h → ${fee}元`;
+  document.getElementById("fee-rule").textContent=type.includes("一对多")?`${cnt}人 → ${fee}元`:`${dur}h → ${fee}元`;
 }
 
 // ── 课程类型 ↔ 学员 双向联动 ──
-let _busy=false;
+let _typeBusy = false;
 function onTypeChange(){
-  if(_busy) return;
-  // 类型变了 → 重建学员列表（只显示对应年级），保留匹配的已选学员
-  buildStuBox(getChecked());
+  if(_typeBusy) return;
+  _typeBusy = true;
+  const checked = getChecked();
+  buildStuBox(checked);
   calcPreview();
+  _typeBusy = false;
 }
 
 function onStuCheckChange(){
-  // 学员勾选变了 → 筛选课程类型
+  if(_typeBusy) return;
   filterCourseTypes();
   calcPreview();
 }
@@ -1559,15 +1730,20 @@ function filterCourseTypes(){
   const grades=new Set();
   checked.forEach(n=>{const s=STUS.find(x=>x.name===n);if(s)grades.add(s.grade);});
   const ALL_TYPES=[
-    {v:"初中一对一",g:"junior"},{v:"高中一对一",g:"senior"},
-    {v:"初中一对多",g:"junior"},{v:"高中一对多",g:"senior"}
+    {v:"小学一对一",g:"junior"},{v:"小学一对多",g:"junior"},
+    {v:"初一一对一",g:"junior"},{v:"初一一对多",g:"junior"},
+    {v:"初二一对一",g:"junior"},{v:"初二一对多",g:"junior"},
+    {v:"初三一对一",g:"junior"},{v:"初三一对多",g:"junior"},
+    {v:"高一一对一",g:"senior"},{v:"高一一对多",g:"senior"},
+    {v:"高二一对一",g:"senior"},{v:"高二一对多",g:"senior"},
+    {v:"高三一对一",g:"senior"},{v:"高三一对多",g:"senior"}
   ];
-  let vis=grades.size===1?ALL_TYPES.filter(o=>o.g===[...grades][0]):ALL_TYPES;
+  let vis=grades.size===1?ALL_TYPES.filter(o=>o.g===grades.values().next().value):ALL_TYPES;
   const old=sel.value;
-  _busy=true;
+  _typeBusy = true;
   sel.innerHTML=vis.map(o=>`<option value="${o.v}">${o.v}</option>`).join("");
   if(vis.find(o=>o.v===old)) sel.value=old; else sel.value=vis[0].value;
-  _busy=false;
+  _typeBusy = false;
 }
 
 async function saveRecord(){
@@ -1630,6 +1806,7 @@ async function saveRecord(){
     return;
   }
   const fee=calcFee(type,dur,stus.length);
+  const tierId = getActiveFeeTierId();
   if(editId!==null){
     const i=RECS.findIndex(r=>String(r.id)===String(editId));
     if(i>-1){
@@ -1644,10 +1821,10 @@ async function saveRecord(){
           if(_detached.indexOf(newKey)===-1){ _detached.push(newKey); saveDetached(); }
         }
       }
-      RECS[i]={...RECS[i],date,startTime:start,type,duration:dur,students:stus,fee,note,ruleId:undefined};
+      RECS[i]={...RECS[i],date,startTime:start,type,duration:dur,students:stus,fee,note,ruleId:undefined,tierId};
     }
   } else {
-    const course = {id:"r_"+Date.now()+"_"+Math.floor(Math.random()*1e9),date,startTime:start,type,duration:dur,students:stus,fee,note};
+    const course = {id:"r_"+Date.now()+"_"+Math.floor(Math.random()*1e9),date,startTime:start,type,duration:dur,students:stus,fee,note,tierId};
     RECS.push(course);
   }
   RECS.sort((a,b)=>a.date!==b.date?a.date.localeCompare(b.date):(a.startTime||"").localeCompare(b.startTime||""));
@@ -1694,12 +1871,13 @@ function renderList(){
   let tf=0,th=0,ts=0;
   tb.innerHTML=f.map(r=>{
     tf+=r.fee;th+=r.duration;ts+=r.students.length;
-    const tc="b"+getTypeClass(r.type).slice(1);
-    const sb=r.students.map(s=>{ const info=STUS.find(x=>x.name===s); return `<span class="badge ${info&&info.grade==="senior"?"bs":"bj"}">${s}</span>`; }).join("");
+    const tc = typeColorBg(r.type);
+    const tcFg = typeColor(r.type);
+    const sb=r.students.map(s=>{ const info=STUS.find(x=>x.name===s); return `<span class="badge" style="background:${info&&info.grade==="senior"?typeColorBg("高三一对一"):typeColorBg("初一一对一")};color:${info&&info.grade==="senior"?typeColor("高三一对一"):typeColor("初一一对一")};border:1px solid ${info&&info.grade==="senior"?typeColor("高三一对一"):typeColor("初一一对一")}44">${s}</span>`; }).join("");
     const [yy,mm,dd]=r.date.split("-");
     const timeCell=r.startTime?`<span style="white-space:nowrap;color:#888">${r.startTime}</span>`:`<span style="white-space:nowrap;color:#c0392b;font-size:11px;background:#fdf2f2;padding:1px 6px;border-radius:4px;border:1px solid #f5c6c6">未排课</span>`;
     const ruleTag=r.ruleId?'<span class="rule-tag">规则</span>':"";
-    return `<tr><td style="white-space:nowrap">${yy}年${+mm}月${+dd}日</td><td>${timeCell}</td><td><span class="badge ${tc}">${r.type}</span>${ruleTag}</td><td>${r.duration}h</td><td>${sb}</td><td style="text-align:center">${r.students.length}</td><td class="fee-val">¥${r.fee}</td><td style="color:#888;font-size:12px">${r.note||"—"}</td><td style="text-align:center;white-space:nowrap"><button class="btn-edit-sm" onclick="openEdit('${r.id}')">编辑</button><button class="btn-danger-sm" onclick="delR('${r.id}')" style="margin-left:4px">删除</button></td></tr>`;
+    return `<tr><td style="white-space:nowrap">${yy}年${+mm}月${+dd}日</td><td>${timeCell}</td><td><span class="badge" style="background:${tc};color:${tcFg};border:1px solid ${tcFg}44">${r.type}</span>${ruleTag}</td><td>${r.duration}h</td><td>${sb}</td><td style="text-align:center">${r.students.length}</td><td class="fee-val">¥${r.fee}</td><td style="color:#888;font-size:12px">${r.note||"—"}</td><td style="text-align:center;white-space:nowrap"><button class="btn-edit-sm" onclick="openEdit('${r.id}')">编辑</button><button class="btn-danger-sm" onclick="delR('${r.id}')" style="margin-left:4px">删除</button></td></tr>`;
   }).join("");
   document.getElementById("s-cnt").textContent=f.length;
   document.getElementById("s-hrs").textContent=th;
@@ -2031,6 +2209,8 @@ function archiveLastMonth(){
 
 function checkImportHistory(){
   const hist=getSalaryHistory(); if(Object.keys(hist).length>0) return;
+  // 硬编码工资历史仅限方老师账号，其他账号跳过
+  if(getCurrentUser()!=="方老师") return;
   const curYr=new Date().getFullYear(); const curMo=new Date().getMonth()+1;
   const knownData={
     [curYr+"-01"]:{fee:null, gross:7866.4, tax:0},
@@ -2071,10 +2251,9 @@ function renderRuleList(){
     const stuText=r.students.slice(0,4).join("、")+(r.students.length>4?"…":"");
     let dateRange="";
     if(r.startDate||r.endDate){ const s=r.startDate?formatDateCN(r.startDate):"开始"; const e=r.endDate?formatDateCN(r.endDate):"以后"; dateRange=` · ${s} ~ ${e}`; }
-    // 兼容旧数据
     const dows = r.daysOfWeek && r.daysOfWeek.length ? r.daysOfWeek : (r.dayOfWeek ? [r.dayOfWeek] : []);
     const dayLabel = dows.length===7?"每天":dows.length===0?"未设置":("每"+dows.map(d=>DAY_NAMES[d-1]).join(""));
-    return `<div class="rule-row"><div class="rule-info"><span class="ri-day">${dayLabel}</span><span class="ri-time"> ${r.startTime} · ${r.duration}h · ${r.type}</span><div class="ri-detail">${stuText}${r.note?" · "+r.note:""}${dateRange}</div></div><button class="btn-edit-sm" onclick="editRule('${r.id}')">编辑</button><button class="btn-danger-sm" onclick="deleteRule('${r.id}')">删除</button></div>`;
+    return `<div class="rule-row"><div class="rule-info"><span class="ri-day">${dayLabel}</span><span class="ri-time">${r.startTime} · ${r.duration}h · ${r.type}</span><div class="ri-detail">${stuText}${r.note?" · "+r.note:""}${dateRange}</div></div><button class="btn-edit-sm" onclick="editRule('${r.id}')">编辑</button><button class="btn-danger-sm" onclick="deleteRule('${r.id}')">删除</button></div>`;
   }).join("");
 }
 
@@ -2148,8 +2327,7 @@ function getDragTooltip(){
   return dragTooltip;
 }
 function createGhost(block, rec){
-  const typeColors = {"初中一对一":"#4A90D9","高中一对一":"#D9534A","初中一对多":"#3BA99C","高中一对多":"#E67E22"};
-  const bgColor = typeColors[rec.type]||"#4A90D9";
+  const bgColor = typeColor(rec.type);
   const h=block.getBoundingClientRect().height;
   const g=document.createElement("div");
   g.style.cssText=`position:fixed;z-index:500;pointer-events:none;border-radius:6px;padding:4px 6px;overflow:hidden;box-shadow:0 6px 20px rgba(0,0,0,.25);background:${bgColor};color:#fff;opacity:.9;`;
@@ -2236,20 +2414,38 @@ function initSelects(){
   });
   document.getElementById("lm").value=now.getMonth()+1;
   document.getElementById("em").value=now.getMonth()+1;
+  // 动态填充课程类型下拉框
+  const tsel = document.getElementById("i-type");
+  if(tsel){
+    tsel.innerHTML = ALL_TYPES.map(t=>`<option value="${t}">${t}</option>`).join("");
+  }
 }
 
 async function initApp(){
   initSupabase();
-  STUS = JSON.parse(localStorage.getItem(STUDENT_LIST_KEY) || JSON.stringify(DEFAULT_STUS));
-  loadRecs(); loadRules(); loadDetached();
-  recoverData();  // 自动扫描旧键名恢复数据
-
+  const CU = getCurrentUser();
+  console.log("🚀 initApp() 开始，当前用户: "+CU);
+  // ★ 第一步：彻底清理所有旧版全局键（登录和注册都要走这里）
+  migrateOldData();
+  cleanupAllOldKeys();
+  // 重置所有全局数据，确保切换账号时不会串数据
+  RECS = []; RULES = []; STUS = []; _detached = []; currentFeeTierId = null;
+  console.log("🧹 内存数据已重置: RECS="+RECS.length+", RULES="+RULES.length);
+  // 新用户默认空列表，方老师使用预设学员
+  const defaultStus = CU==="方老师" ? JSON.stringify(DEFAULT_STUS) : "[]";
+  STUS = JSON.parse(localStorage.getItem(STUDENT_LIST_KEY) || defaultStus);
+  loadRecs(); console.log("📥 loadRecs 后 RECS="+RECS.length);
+  loadRules(); console.log("📥 loadRules 后 RULES="+RULES.length);
+  loadDetached();
+  recoverData();  // 自动扫描旧键名恢复数据（仅方老师，内部有检查）
   // 云端优先：有网就从云端拉数据覆盖本地
+  console.log("☁️ 准备从云端加载，cloudReady="+cloudReady);
   const cloudLoaded = await loadFromCloud();
+  console.log("☁️ 云端加载完成: cloudLoaded="+cloudLoaded+", RECS="+RECS.length);
 
-  // ★ 如果本地有未同步的修改（刷新前改了数据但没推送上云端），立即推送到云端
-  if(cloudReady && _hasUnpushedChanges && (RECS.length > 0 || RULES.length > 0)){
-    setTimeout(pushToCloud, 500);
+  // 初始化分档：非方老师且无分档时给默认分档
+  if(getCurrentUser()!=="方老师" && !loadFeeTiers().length){
+    saveFeeTiers(getDefaultFeeTiers());
   }
 
   initSelects();
@@ -2270,7 +2466,210 @@ async function initApp(){
   if(cloudReady && !cloudLoaded && (RECS.length > 0 || RULES.length > 0)){
     setTimeout(pushToCloud, 1500);
   }
+
+  // 控制分档管理按钮显示
+  if(getCurrentUser()!=="方老师"){
+    document.getElementById("btn-tier-mgr").style.display = "";
+  }
 }
+
+// ══════════════════════════════
+//  课时费分档管理
+// ══════════════════════════════
+function openTierMgr(){
+  renderTierMgr();
+  document.getElementById("tier-mgr-modal").classList.add("open");
+}
+
+function renderTierMgr(){
+  const tiers = loadFeeTiers();
+  const body = document.getElementById("tier-mgr-body");
+  let html = '<div style="margin-bottom:12px;color:#888;font-size:12px">管理你的课时费分档，排课时可选择不同分档。</div>';
+  if(!tiers.length){
+    html += '<div style="color:#aaa;text-align:center;padding:20px">暂无分档，点击下方按钮创建</div>';
+  } else {
+    html += '<table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr style="border-bottom:1px solid #e0e0e0"><th style="text-align:left;padding:8px 4px">分档名称</th><th style="text-align:left;padding:8px 4px">规则数</th><th style="text-align:left;padding:8px 4px">示例</th><th style="width:100px;padding:8px 4px"></th></tr></thead><tbody>';
+    tiers.forEach((t,i)=>{
+      const r = t.rates;
+      let ruleCount = 0, sample = "";
+      ALL_TYPES.forEach(type=>{
+        const m = r[type]||{};
+        Object.keys(m).forEach(k=>{ ruleCount++; if(!sample) sample = type+(m[k]!==undefined?" ¥"+m[k]:""); });
+      });
+      html += `<tr style="border-bottom:1px solid #f0f0f0">
+        <td style="padding:8px 4px;font-weight:600">${t.name}</td>
+        <td style="padding:8px 4px">${ruleCount}条</td>
+        <td style="padding:8px 4px;color:#888;font-size:12px">${sample||"-"}</td>
+        <td style="padding:8px 4px;text-align:right">
+          <button class="btn btn-ghost" style="font-size:11px;padding:3px 8px" onclick="openTierEdit('${t.id}')">编辑</button>
+          <button class="btn btn-ghost" style="font-size:11px;padding:3px 8px;color:#D15050" onclick="deleteTier('${t.id}')">删除</button>
+        </td>
+      </tr>`;
+    });
+    html += '</tbody></table>';
+  }
+  html += '<div style="margin-top:16px;text-align:center"><button class="btn btn-primary" onclick="openTierEdit()">＋ 新建分档</button></div>';
+  body.innerHTML = html;
+}
+
+let editingTierId = null;
+function openTierEdit(tid){
+  editingTierId = tid || null;
+  document.getElementById("tier-edit-title").textContent = tid ? "编辑分档" : "新建分档";
+  const body = document.getElementById("tier-edit-body");
+
+  // 加载现有数据
+  let tier = {id:"",name:"",rates:{}};
+  ALL_TYPES.forEach(t=>{ tier.rates[t] = {}; });
+  if(tid){
+    const tiers = loadFeeTiers();
+    const found = tiers.find(t=>t.id===tid);
+    if(found) tier = found;
+  }
+
+  // 将 rates 展平为规则列表
+  window._etRules = [];
+  ALL_TYPES.forEach(type=>{
+    const r = tier.rates[type]||{};
+    if(type.includes("一对一")){
+      [2,1.5].forEach(dur=>{ if(r[dur]) window._etRules.push({type,dur,hc:null,fee:r[dur]}); });
+    } else {
+      [1,2,3,4].forEach(hc=>{ if(r[hc]) window._etRules.push({type,dur:2,hc,fee:r[hc]}); });
+      if(r[1.5]) window._etRules.push({type,dur:1.5,hc:null,fee:r[1.5]});
+    }
+  });
+
+  let html = '<div class="frow full"><div class="fg"><label>分档名称</label><input type="text" id="et-name" value="'+escHtml(tier.name)+'" placeholder="如：标准课时费"></div></div>';
+
+  // 已有规则列表
+  html += '<div id="et-rules-list" style="margin-top:12px;max-height:180px;overflow-y:auto"></div>';
+
+  // 添加新规则
+  html += '<div style="border-top:1px solid #eee;margin-top:12px;padding-top:10px">';
+  html += '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">';
+
+  // 课程类型
+  html += '<select id="et-add-type" style="padding:4px 6px;border:1px solid #ddd;border-radius:4px;font-size:12px" onchange="onEtTypeChange()">';
+  ALL_TYPES.forEach(t=>{ html += `<option value="${t}">${t}</option>`; });
+  html += '</select>';
+
+  // 时长（一对一）/ 人数（一对多）
+  html += '<select id="et-add-param" style="padding:4px 6px;border:1px solid #ddd;border-radius:4px;font-size:12px"></select>';
+
+  html += '<input type="number" id="et-add-fee" placeholder="课时费" style="width:72px;padding:4px 6px;font-size:12px;border:1px solid #ddd;border-radius:4px">';
+  html += '<button class="btn btn-primary" style="font-size:12px;padding:4px 12px" onclick="etAddRule()">添加</button>';
+  html += '</div></div>';
+
+  html += '<div style="margin-top:16px;text-align:right">';
+  html += '<button class="btn btn-ghost" onclick="bgClose(\'tier-edit-modal\')">取消</button> ';
+  html += '<button class="btn btn-primary" onclick="saveTierSimple()">保存</button>';
+  html += '</div>';
+
+  body.innerHTML = html;
+  onEtTypeChange();  // 初始化参数下拉框
+  etRenderRules();
+  document.getElementById("tier-edit-modal").classList.add("open");
+}
+
+// 根据课程类型切换参数下拉框（时长 or 人数）
+function onEtTypeChange(){
+  const type = document.getElementById("et-add-type").value;
+  const sel = document.getElementById("et-add-param");
+  sel.innerHTML = "";
+  if(type.includes("一对一")){
+    sel.innerHTML = '<option value="2">2小时</option><option value="1.5">1.5小时</option>';
+  } else {
+    sel.innerHTML = '<option value="1">1人</option><option value="2">2人</option><option value="3">3人</option><option value="4">4人</option>';
+  }
+  document.getElementById("et-add-fee").value = "";
+}
+
+// 渲染已有规则列表
+function etRenderRules(){
+  const list = document.getElementById("et-rules-list");
+  if(!list) return;
+  if(!window._etRules||!window._etRules.length){
+    list.innerHTML = '<div style="color:#aaa;font-size:12px;padding:6px 0">暂无规则，请在下方添加</div>';
+    return;
+  }
+  let h = "";
+  window._etRules.forEach((r,i)=>{
+    let desc = r.type;
+    if(r.hc) desc += " "+r.hc+"人";
+    else desc += " "+r.dur+"小时";
+    desc += " → ¥"+r.fee;
+    h += '<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid #f5f5f5;font-size:12px"><span>'+desc+'</span><button onclick="etDelRule('+i+')" style="background:none;border:none;color:#D15050;cursor:pointer;font-size:14px">×</button></div>';
+  });
+  list.innerHTML = h;
+}
+
+// 添加一条规则
+function etAddRule(){
+  const type = document.getElementById("et-add-type").value;
+  const param = parseFloat(document.getElementById("et-add-param").value);
+  const fee = parseFloat(document.getElementById("et-add-fee").value);
+  if(!fee||fee<=0){ alert("请填写课时费"); return; }
+
+  if(type.includes("一对一")){
+    // 一对一：param=时长
+    const exist = window._etRules.findIndex(r=>r.type===type&&r.dur===param);
+    if(exist>-1) window._etRules[exist].fee = fee;
+    else window._etRules.push({type,dur:param,hc:null,fee});
+  } else {
+    // 一对多：param=人数
+    const exist = window._etRules.findIndex(r=>r.type===type&&r.hc===param);
+    if(exist>-1) window._etRules[exist].fee = fee;
+    else window._etRules.push({type,dur:2,hc:param,fee});
+  }
+  document.getElementById("et-add-fee").value = "";
+  etRenderRules();
+}
+
+// 删除一条规则
+function etDelRule(idx){
+  window._etRules.splice(idx,1);
+  etRenderRules();
+}
+
+function saveTierSimple(){
+  const name = document.getElementById("et-name").value.trim();
+  if(!name){ alert("请输入分档名称"); return; }
+  if(!window._etRules||!window._etRules.length){ alert("请至少添加一条规则"); return; }
+
+  // 将 _etRules 转回 rates 结构
+  const rates = {};
+  window._etRules.forEach(r=>{
+    if(!rates[r.type]) rates[r.type] = {};
+    if(r.hc) rates[r.type][r.hc] = r.fee;
+    else rates[r.type][r.dur] = r.fee;
+  });
+
+  const tiers = loadFeeTiers();
+  if(editingTierId){
+    const idx = tiers.findIndex(t=>t.id===editingTierId);
+    if(idx>-1) tiers[idx] = {id:editingTierId, name, rates};
+  } else {
+    const id = "t_"+Date.now()+"_"+Math.floor(Math.random()*1e9);
+    tiers.push({id, name, rates});
+  }
+
+  saveFeeTiers(tiers);
+  editingTierId = null;
+  window._etRules = null;
+  bgClose("tier-edit-modal");
+  renderTierMgr();
+  if(tiers.length && !currentFeeTierId) currentFeeTierId = tiers[0].id;
+}
+
+function deleteTier(tid){
+  if(!confirm("确认删除此分档？")) return;
+  const tiers = loadFeeTiers();
+  saveFeeTiers(tiers.filter(t=>t.id!==tid));
+  if(currentFeeTierId===tid) currentFeeTierId = null;
+  renderTierMgr();
+}
+
+function escHtml(s){ return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
 
 document.addEventListener("DOMContentLoaded",()=>{
   document.getElementById("new-name").addEventListener("keydown",e=>{ if(e.key==="Enter") addStu(); });
