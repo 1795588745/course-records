@@ -507,6 +507,7 @@ body{font-family:"PingFang SC","Microsoft YaHei",sans-serif;background:#f5f4f0;c
   </div>
   <div class="toolbar-right">
     <button class="btn btn-outline" id="btn-tier-mgr" style="display:none" onclick="openTierMgr()">课时费分档</button>
+    <button class="btn btn-outline" id="btn-type-mgr" style="display:none" onclick="openTypeMgr()">课程类型</button>
     <button class="btn btn-primary" onclick="openAdd()">＋ 添加课程</button>
     <div class="view-tabs">
       <button class="view-tab active" id="tab-week" onclick="switchView('week')">周视图</button>
@@ -768,6 +769,14 @@ body{font-family:"PingFang SC","Microsoft YaHei",sans-serif;background:#f5f4f0;c
   </div>
 </div>
 
+<!-- ═══ 课程类型管理 模态框 ═══ -->
+<div class="modal-bg" id="type-mgr-modal" onclick="bgClose('type-mgr-modal')">
+  <div class="modal" style="max-width:560px" onclick="event.stopPropagation()">
+    <div class="mhead"><h2>课程类型管理</h2><button class="mclose" onclick="bgClose('type-mgr-modal')">×</button></div>
+    <div class="mbody" id="type-mgr-body"></div>
+  </div>
+</div>
+
 </div><!-- /app-root -->
 
 <script>
@@ -913,7 +922,7 @@ function cleanupAllOldKeys(){
     "_recs","_rules","klrecs","klrules","课程记录","排课规则",
     "course_records","course_rules","schedule_recs","schedule_rules",
     "student_list","salary_history","salary_config",
-    "overtime","txrest","fee_tiers"
+    "overtime","txrest","fee_tiers","custom_types"
   ];
   let cleaned = 0;
   oldKeys.forEach(k => {
@@ -967,7 +976,7 @@ async function doRegister(){
 // ══════════════════════════════
 //  本地数据存储（localStorage）—— 按用户隔离键名
 // ══════════════════════════════
-let STORAGE_KEY_RECS, STORAGE_KEY_RULES, DETACHED_KEY, STUDENT_LIST_KEY, SALARY_KEY, SALARY_CFG_KEY, OT_KEY, TX_KEY, FEE_TIERS_KEY;
+let STORAGE_KEY_RECS, STORAGE_KEY_RULES, DETACHED_KEY, STUDENT_LIST_KEY, SALARY_KEY, SALARY_CFG_KEY, OT_KEY, TX_KEY, FEE_TIERS_KEY, CUSTOM_TYPES_KEY;
 
 function setUserKeys(username){
   const p = "u_" + username + "_";
@@ -980,6 +989,7 @@ function setUserKeys(username){
   OT_KEY = p + "overtime";
   TX_KEY = p + "txrest";
   FEE_TIERS_KEY = p + "fee_tiers";
+  CUSTOM_TYPES_KEY = p + "custom_types";
 }
 
 // 初始化新用户的默认分档（非方老师账号）
@@ -1002,6 +1012,48 @@ function loadFeeTiers(){
 function saveFeeTiers(tiers){
   localStorage.setItem(FEE_TIERS_KEY, JSON.stringify(tiers));
   scheduleCloudSync();
+}
+
+// ── 自定义课程类型（非方老师账号） ──
+function loadCustomTypes(){
+  try { return JSON.parse(localStorage.getItem(CUSTOM_TYPES_KEY)||"[]"); } catch(e){ return []; }
+}
+function saveCustomTypes(types){
+  localStorage.setItem(CUSTOM_TYPES_KEY, JSON.stringify(types));
+  scheduleCloudSync();
+}
+
+// 获取当前用户可见的课程类型列表（方老师用硬编码 ALL_TYPES，其他用户用自定义列表）
+function getCourseTypes(){
+  if(getCurrentUser()==="方老师") return ALL_TYPES;
+  const custom = loadCustomTypes();
+  if(!custom.length) return ALL_TYPES; // 尚未自定义，回退全局类型
+  return custom.map(c => c.name);
+}
+
+// 根据名称判断类型元信息（年级 + 模式）
+function detectTypeGradeFromName(typeName){
+  const grade = typeName.includes("高中")||typeName.includes("高一")||typeName.includes("高二")||typeName.includes("高三")?"senior":
+    typeName.includes("初中")||typeName.includes("初一")||typeName.includes("初二")||typeName.includes("初三")||typeName.includes("小学")?"junior":null;
+  const mode = typeName.includes("一对多")?"group":"1v1";
+  return {grade, mode};
+}
+
+// 获取课程类型的元信息
+function getTypeInfo(typeName){
+  if(getCurrentUser()==="方老师") return detectTypeGradeFromName(typeName);
+  const custom = loadCustomTypes();
+  const found = custom.find(c => c.name === typeName);
+  if(found) return {grade: found.grade, mode: found.mode};
+  return detectTypeGradeFromName(typeName);
+}
+
+// 自定义类型的默认值（为非方老师账号初始化）
+function getDefaultCustomTypes(){
+  return ALL_TYPES.map(name => {
+    const info = detectTypeGradeFromName(name);
+    return {name, grade: info.grade||"junior", mode: info.mode};
+  });
 }
 
 // 获取当前生效的费率规则（方老师用硬编码，其他用户用选中分档）
@@ -1171,7 +1223,8 @@ async function pushToCloud(){
       salary_config: JSON.parse(localStorage.getItem(SALARY_CFG_KEY)||"{}"),
       overtime: getOvertimeList(),
       txrest: getTxList(),
-      fee_tiers: loadFeeTiers()
+      fee_tiers: loadFeeTiers(),
+      custom_types: loadCustomTypes()
     };
     await sb.from("app_state").upsert({id:1, data:allData, updated_at:new Date().toISOString()});
     localStorage.setItem("_cloud_state","synced");
@@ -1238,6 +1291,7 @@ async function loadFromCloud(){
   if(ud.overtime && Array.isArray(ud.overtime)){ localStorage.setItem(OT_KEY,JSON.stringify(ud.overtime)); }
   if(ud.txrest && Array.isArray(ud.txrest)){ localStorage.setItem(TX_KEY,JSON.stringify(ud.txrest)); }
   if(ud.fee_tiers && Array.isArray(ud.fee_tiers)){ localStorage.setItem(FEE_TIERS_KEY,JSON.stringify(ud.fee_tiers)); }
+  if(ud.custom_types && Array.isArray(ud.custom_types)){ localStorage.setItem(CUSTOM_TYPES_KEY,JSON.stringify(ud.custom_types)); }
   if(hasData) console.log("☁️ 从云端加载了「"+user+"」的数据");
   return hasData;
   } finally {
@@ -1278,16 +1332,29 @@ const ALL_TYPES = ALL_GRADES.flatMap(g=>[g+"一对一", g+"一对多"]);
 const GRADE_HUES = [270,210,190,160,30,10,350];
 function typeColor(type){
   const idx = ALL_TYPES.indexOf(type);
-  if(idx<0) return "#4A90D9";
-  const gi = idx%7, isMulti = idx>=7;
-  const h = GRADE_HUES[gi];
+  if(idx >= 0){
+    const gi = idx%7, isMulti = idx>=7;
+    const h = GRADE_HUES[gi];
+    return `hsl(${h},${isMulti?60:55}%,${isMulti?42:48}%)`;
+  }
+  // 自定义类型：根据年级+模式+名称哈希生成颜色
+  const info = getTypeInfo(type);
+  const hash = [...type].reduce((a,c)=>a+c.charCodeAt(0),0) % 24;
+  const isMulti = info.mode === "group";
+  const h = info.grade==="senior" ? (isMulti?22+hash:4+hash) : (isMulti?168+hash:212+hash);
   return `hsl(${h},${isMulti?60:55}%,${isMulti?42:48}%)`;
 }
 function typeColorBg(type){
   const idx = ALL_TYPES.indexOf(type);
-  if(idx<0) return "#dbe9f8";
-  const gi = idx%7, isMulti = idx>=7;
-  const h = GRADE_HUES[gi];
+  if(idx >= 0){
+    const gi = idx%7, isMulti = idx>=7;
+    const h = GRADE_HUES[gi];
+    return `hsl(${h},${isMulti?45:40}%,92%)`;
+  }
+  const info = getTypeInfo(type);
+  const hash = [...type].reduce((a,c)=>a+c.charCodeAt(0),0) % 24;
+  const isMulti = info.mode === "group";
+  const h = info.grade==="senior" ? (isMulti?22+hash:4+hash) : (isMulti?168+hash:212+hash);
   return `hsl(${h},${isMulti?45:40}%,92%)`;
 }
 const FEE_RULES = {
@@ -1687,7 +1754,8 @@ function buildStuBox(checked){
   const box=document.getElementById("stu-box");
   // 根据当前课程类型过滤可选的学员年级
   const type=document.getElementById("i-type").value;
-  const gradeNeed=type.includes("高一")||type.includes("高二")||type.includes("高三")||type.includes("高中")?"senior":type.includes("初一")||type.includes("初二")||type.includes("初三")||type.includes("初中")||type.includes("小学")?"junior":null;
+  const typeInfo=detectTypeGradeFromName(type);
+  const gradeNeed=typeInfo.grade;
   let candidates=STUS;
   if(gradeNeed) candidates=STUS.filter(s=>s.grade===gradeNeed);
   // 只保留符合年级的已选学员
@@ -1729,16 +1797,9 @@ function filterCourseTypes(){
   const checked=getChecked();
   const grades=new Set();
   checked.forEach(n=>{const s=STUS.find(x=>x.name===n);if(s)grades.add(s.grade);});
-  const ALL_TYPES=[
-    {v:"小学一对一",g:"junior"},{v:"小学一对多",g:"junior"},
-    {v:"初一一对一",g:"junior"},{v:"初一一对多",g:"junior"},
-    {v:"初二一对一",g:"junior"},{v:"初二一对多",g:"junior"},
-    {v:"初三一对一",g:"junior"},{v:"初三一对多",g:"junior"},
-    {v:"高一一对一",g:"senior"},{v:"高一一对多",g:"senior"},
-    {v:"高二一对一",g:"senior"},{v:"高二一对多",g:"senior"},
-    {v:"高三一对一",g:"senior"},{v:"高三一对多",g:"senior"}
-  ];
-  let vis=grades.size===1?ALL_TYPES.filter(o=>o.g===grades.values().next().value):ALL_TYPES;
+  const courseTypes = getCourseTypes();
+  const allTypesWithGrade = courseTypes.map(t => ({v: t, g: getTypeInfo(t).grade}));
+  let vis=grades.size===1?allTypesWithGrade.filter(o=>o.g===grades.values().next().value):allTypesWithGrade;
   const old=sel.value;
   _typeBusy = true;
   sel.innerHTML=vis.map(o=>`<option value="${o.v}">${o.v}</option>`).join("");
@@ -2417,7 +2478,7 @@ function initSelects(){
   // 动态填充课程类型下拉框
   const tsel = document.getElementById("i-type");
   if(tsel){
-    tsel.innerHTML = ALL_TYPES.map(t=>`<option value="${t}">${t}</option>`).join("");
+    tsel.innerHTML = getCourseTypes().map(t=>`<option value="${t}">${t}</option>`).join("");
   }
 }
 
@@ -2447,6 +2508,10 @@ async function initApp(){
   if(getCurrentUser()!=="方老师" && !loadFeeTiers().length){
     saveFeeTiers(getDefaultFeeTiers());
   }
+  // 初始化课程类型：非方老师且无自定义类型时给默认
+  if(getCurrentUser()!=="方老师" && !loadCustomTypes().length){
+    saveCustomTypes(getDefaultCustomTypes());
+  }
 
   initSelects();
   renderCal();
@@ -2470,7 +2535,71 @@ async function initApp(){
   // 控制分档管理按钮显示
   if(getCurrentUser()!=="方老师"){
     document.getElementById("btn-tier-mgr").style.display = "";
+    document.getElementById("btn-type-mgr").style.display = "";
   }
+}
+
+// ══════════════════════════════
+//  课程类型管理（非方老师账号）
+// ══════════════════════════════
+function openTypeMgr(){
+  renderTypeMgr();
+  document.getElementById("type-mgr-modal").classList.add("open");
+}
+
+function renderTypeMgr(){
+  const types = loadCustomTypes();
+  const body = document.getElementById("type-mgr-body");
+  let html = '<div style="margin-bottom:12px;color:#888;font-size:12px">管理课程类型，添加/删除后会影响排课和课时费设置。</div>';
+
+  if(!types.length){
+    html += '<div style="color:#aaa;text-align:center;padding:20px">暂无课程类型</div>';
+  } else {
+    html += '<table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr style="border-bottom:1px solid #e0e0e0"><th style="text-align:left;padding:6px 4px">课程名称</th><th style="text-align:left;padding:6px 4px">年级</th><th style="text-align:left;padding:6px 4px">模式</th><th style="width:50px;padding:6px 4px"></th></tr></thead><tbody>';
+    types.forEach(t=>{
+      html += `<tr style="border-bottom:1px solid #f0f0f0">
+        <td style="padding:6px 4px;font-weight:600">${escHtml(t.name)}</td>
+        <td style="padding:6px 4px">${t.grade==="senior"?"高中":"初中"}</td>
+        <td style="padding:6px 4px">${t.mode==="group"?"一对多":"一对一"}</td>
+        <td style="padding:6px 4px;text-align:center"><button onclick="deleteCustomType('${escHtml(t.name).replace(/'/g,"\\'")}')" style="background:none;border:none;color:#D15050;cursor:pointer;font-size:16px" title="删除">×</button></td>
+      </tr>`;
+    });
+    html += '</tbody></table>';
+  }
+
+  // 新增表单
+  html += '<div style="border-top:1px solid #e0e0e0;margin-top:12px;padding-top:12px">';
+  html += '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">';
+  html += '<input type="text" id="tm-add-name" placeholder="课程名称，如：英语一对一" style="flex:1;min-width:120px;padding:6px 8px;font-size:13px;border:1px solid #ddd;border-radius:4px">';
+  html += '<select id="tm-add-grade" style="padding:6px 8px;border:1px solid #ddd;border-radius:4px;font-size:13px"><option value="junior">初中</option><option value="senior">高中</option></select>';
+  html += '<select id="tm-add-mode" style="padding:6px 8px;border:1px solid #ddd;border-radius:4px;font-size:13px"><option value="1v1">一对一</option><option value="group">一对多</option></select>';
+  html += '<button class="btn btn-primary" style="font-size:13px;padding:6px 14px" onclick="addCustomType()">添加</button>';
+  html += '</div></div>';
+
+  body.innerHTML = html;
+}
+
+function addCustomType(){
+  const name = document.getElementById("tm-add-name").value.trim();
+  if(!name){ alert("请输入课程名称"); return; }
+  const grade = document.getElementById("tm-add-grade").value;
+  const mode = document.getElementById("tm-add-mode").value;
+
+  const types = loadCustomTypes();
+  if(types.find(t=>t.name===name)){ alert("该课程类型已存在"); return; }
+
+  types.push({name, grade, mode});
+  saveCustomTypes(types);
+  document.getElementById("tm-add-name").value = "";
+  renderTypeMgr();
+}
+
+function deleteCustomType(name){
+  if(!confirm(`确定删除「${name}」？\n\n已排课程不会受影响，但该类型将从下拉框中移除。`)) return;
+  let types = loadCustomTypes();
+  types = types.filter(t=>t.name!==name);
+  saveCustomTypes(types);
+  renderTypeMgr();
 }
 
 // ══════════════════════════════
@@ -2492,7 +2621,7 @@ function renderTierMgr(){
     tiers.forEach((t,i)=>{
       const r = t.rates;
       let ruleCount = 0, sample = "";
-      ALL_TYPES.forEach(type=>{
+      getCourseTypes().forEach(type=>{
         const m = r[type]||{};
         Object.keys(m).forEach(k=>{ ruleCount++; if(!sample) sample = type+(m[k]!==undefined?" ¥"+m[k]:""); });
       });
@@ -2520,7 +2649,7 @@ function openTierEdit(tid){
 
   // 加载现有数据
   let tier = {id:"",name:"",rates:{}};
-  ALL_TYPES.forEach(t=>{ tier.rates[t] = {}; });
+  getCourseTypes().forEach(t=>{ tier.rates[t] = {}; });
   if(tid){
     const tiers = loadFeeTiers();
     const found = tiers.find(t=>t.id===tid);
@@ -2529,7 +2658,7 @@ function openTierEdit(tid){
 
   // 将 rates 展平为规则列表
   window._etRules = [];
-  ALL_TYPES.forEach(type=>{
+  getCourseTypes().forEach(type=>{
     const r = tier.rates[type]||{};
     if(type.includes("一对一")){
       [2,1.5].forEach(dur=>{ if(r[dur]) window._etRules.push({type,dur,hc:null,fee:r[dur]}); });
@@ -2550,7 +2679,7 @@ function openTierEdit(tid){
 
   // 课程类型
   html += '<select id="et-add-type" style="padding:4px 6px;border:1px solid #ddd;border-radius:4px;font-size:12px" onchange="onEtTypeChange()">';
-  ALL_TYPES.forEach(t=>{ html += `<option value="${t}">${t}</option>`; });
+  getCourseTypes().forEach(t=>{ html += `<option value="${t}">${t}</option>`; });
   html += '</select>';
 
   // 时长（一对一）/ 人数（一对多）
