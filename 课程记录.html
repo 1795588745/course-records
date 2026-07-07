@@ -1516,7 +1516,9 @@ function renderCal(){
     if (!mStyle) { mStyle = document.createElement('style'); mStyle.id = '_mobile_cell_style'; document.head.appendChild(mStyle); }
     mStyle.textContent = `.time-cell{height:${CELL_H}px!important}.hour-slot{height:${CELL_H}px!important}`;
   }
+  const prevLen = RECS.length;
   generateFromRules();
+  if(RECS.length > prevLen){ saveRecs(); scheduleCloudSync(); }  // 规则生成新课程后立即持久化
   const recs = getVisibleRecs();
   const days = Array.from({length:7},(_,i)=>{ const d=new Date(weekStart); d.setDate(d.getDate()+i); return d; });
   const s=days[0],e=days[6];
@@ -2100,7 +2102,7 @@ function getSalaryHistory(){ return JSON.parse(localStorage.getItem(SALARY_KEY)|
 function saveSalaryHistory(h){ localStorage.setItem(SALARY_KEY,JSON.stringify(h)); scheduleCloudSync(); }
 
 function getMonthGross(yr,mo){
-  generateFromRules();
+  // 不在此调用 generateFromRules()——工资计算应只读数据，不应修改 RECS
   const recs=getVisibleRecs();
   const cfg=JSON.parse(localStorage.getItem(SALARY_CFG_KEY)||"{}");
   const base=cfg.base||3800, deduct=cfg.deduct||650, insurance=cfg.insurance||723.5;
