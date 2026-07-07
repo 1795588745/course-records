@@ -1326,18 +1326,17 @@ function calcCellH() {
 
 let CELL_H = 60; // 初始值，待 DOM ready 后更新
 const DAY_NAMES = ["周一","周二","周三","周四","周五","周六","周日"];
-const ALL_GRADES = ["小学","初一","初二","初三","高一","高二","高三"];
-const ALL_TYPES = ALL_GRADES.flatMap(g=>[g+"一对一", g+"一对多"]);
-// 每一年级对应一个色系：小学-紫, 初一-蓝, 初二-青, 初三-绿, 高一-橙, 高二-红, 高三-玫红
-const GRADE_HUES = [270,210,190,160,30,10,350];
+// 方老师主账号：简化为4个课程类型（初中/高中 × 一对一/一对多）
+const ALL_TYPES = ["初中一对一", "初中一对多", "高中一对一", "高中一对多"];
+// 颜色：初中用青绿色系(h≈180)，高中用橙红色系(h≈10)，一对多饱和度略低
 function typeColor(type){
   const idx = ALL_TYPES.indexOf(type);
   if(idx >= 0){
-    const gi = idx%7, isMulti = idx>=7;
-    const h = GRADE_HUES[gi];
+    const gi = idx%2, isMulti = idx>=2;
+    const h = gi===0 ? 180 : 10;
     return `hsl(${h},${isMulti?60:55}%,${isMulti?42:48}%)`;
   }
-  // 自定义类型：根据年级+模式+名称哈希生成颜色
+  // 自定义类型或旧类型：根据年级+模式+名称哈希生成颜色
   const info = getTypeInfo(type);
   const hash = [...type].reduce((a,c)=>a+c.charCodeAt(0),0) % 24;
   const isMulti = info.mode === "group";
@@ -1347,8 +1346,8 @@ function typeColor(type){
 function typeColorBg(type){
   const idx = ALL_TYPES.indexOf(type);
   if(idx >= 0){
-    const gi = idx%7, isMulti = idx>=7;
-    const h = GRADE_HUES[gi];
+    const gi = idx%2, isMulti = idx>=2;
+    const h = gi===0 ? 180 : 10;
     return `hsl(${h},${isMulti?45:40}%,92%)`;
   }
   const info = getTypeInfo(type);
@@ -1357,13 +1356,12 @@ function typeColorBg(type){
   const h = info.grade==="senior" ? (isMulti?22+hash:4+hash) : (isMulti?168+hash:212+hash);
   return `hsl(${h},${isMulti?45:40}%,92%)`;
 }
+// 方老师主账号：简化为4个费率键
 const FEE_RULES = {
-  "小学一对一":{2:100,1.5:75},
-  "初一一对一":{2:130,1.5:97.5}, "初二一对一":{2:130,1.5:97.5}, "初三一对一":{2:130,1.5:97.5},
-  "高一一对一":{2:160,1.5:120}, "高二一对一":{2:160,1.5:120}, "高三一对一":{2:160,1.5:120},
-  "小学一对多":{1:100,2:130,3:160,4:180},
-  "初一一对多":{1:130,2:160,3:190,4:210}, "初二一对多":{1:130,2:160,3:190,4:210}, "初三一对多":{1:130,2:160,3:190,4:210},
-  "高一一对多":{1:160,2:190,3:220,4:240}, "高二一对多":{1:160,2:190,3:220,4:240}, "高三一对多":{1:160,2:190,3:220,4:240}}
+  "初中一对一":{2:130,1.5:97.5},
+  "初中一对多":{1:130,2:160,3:190,4:210},
+  "高中一对一":{2:160,1.5:120},
+  "高中一对多":{1:160,2:190,3:220,4:240}}
 const DEFAULT_STUS = [
   {name:"吴彦希",grade:"junior"},{name:"管晨皓",grade:"junior"},{name:"俞跃",grade:"junior"},
   {name:"曹柯",grade:"junior"},{name:"林威宇",grade:"junior"},{name:"林允儿",grade:"junior"},
