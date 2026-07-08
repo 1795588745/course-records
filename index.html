@@ -201,7 +201,10 @@ body{font-family:"PingFang SC","Microsoft YaHei",sans-serif;background:#f5f4f0;c
 
 .smrow{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:8px;margin-bottom:3px;background:#f9f8f5}
 .smrow:hover{background:#f0eff9}
-.smname{flex:1;font-size:13px}
+.smname{flex:1;font-size:13px;display:flex;align-items:center;gap:6px}
+.smname .edit-btn{font-size:11px;color:#aaa;cursor:pointer;opacity:0;transition:opacity .15s}
+.smrow:hover .edit-btn{opacity:1}
+.smname .edit-btn:hover{color:#534AB7}
 .gtag{font-size:11px;padding:2px 7px;border-radius:4px;font-weight:500;cursor:pointer}
 .gtag:hover{opacity:.75}
 .add-form{display:flex;gap:8px;margin-top:12px;padding-top:12px;border-top:1px solid #e8e7e3;align-items:flex-end;flex-wrap:wrap}
@@ -2408,7 +2411,7 @@ function renderStuList(){
   document.getElementById("stu-count-lbl").textContent=`共 ${STUS.length} 名`;
   const box=document.getElementById("stu-list");
   if(!STUS.length){box.innerHTML='<div style="color:#aaa;text-align:center;padding:20px;font-size:13px">暂无学员</div>';return;}
-  box.innerHTML=STUS.map((s,i)=>`<div class="smrow"><span class="smname">${s.name}</span><span class="gtag ${s.grade==="senior"?"bs":"bj"}" onclick="toggleGrade(${i})" title="点击切换年级">${s.grade==="senior"?"高中":"初中"}</span><button class="btn-danger-sm" onclick="removeStu(${i})">删除</button></div>`).join("");
+  box.innerHTML=STUS.map((s,i)=>`<div class="smrow"><span class="smname">${s.name}<span class="edit-btn" onclick="event.stopPropagation();editStuName(${i})" title="编辑姓名">✎</span></span><span class="gtag ${s.grade==="senior"?"bs":"bj"}" onclick="toggleGrade(${i})" title="点击切换年级">${s.grade==="senior"?"高中":"初中"}</span><button class="btn-danger-sm" onclick="removeStu(${i})">删除</button></div>`).join("");
 }
 function toggleGrade(i){ STUS[i].grade=STUS[i].grade==="senior"?"junior":"senior"; localStorage.setItem(STUDENT_LIST_KEY,JSON.stringify(STUS)); scheduleCloudSync(); renderStuList(); refresh(); }
 function addStu(){
@@ -2422,6 +2425,21 @@ function addStu(){
 function removeStu(i){
   if(!confirm(`删除学员「${STUS[i].name}」？`)) return;
   STUS.splice(i,1); localStorage.setItem(STUDENT_LIST_KEY,JSON.stringify(STUS)); scheduleCloudSync(); renderStuList(); refresh();
+}
+function editStuName(i){
+  const oldName = STUS[i].name;
+  const newName = prompt("修改学员姓名：", oldName);
+  if(!newName || !newName.trim() || newName.trim()===oldName) return;
+  const nm = newName.trim();
+  if(!nm){ return; }
+  if(STUS.find((s,idx)=>idx!==i && s.name===nm)){ alert(`「${nm}」已存在`); return; }
+  // 同步更新所有课程记录中的姓名引用
+  RECS.forEach(r=>{ if(r.students){ r.students=r.students.map(s=>s===oldName?nm:s); } });
+  RULES.forEach(r=>{ if(r.students){ r.students=r.students.map(s=>s===oldName?nm:s); } });
+  STUS[i].name = nm;
+  localStorage.setItem(STUDENT_LIST_KEY, JSON.stringify(STUS));
+  saveRecs(); saveRules();
+  renderStuList(); refresh();
 }
 
 // ══════════════════════════════
