@@ -566,7 +566,8 @@ body{font-family:"PingFang SC","Microsoft YaHei",sans-serif;background:#f5f4f0;c
       <label><span>基本工资</span><input type="number" id="sp-base" value="3800" onchange="recalcSalary()"></label>
       <label><span>义务课时费</span><input type="number" id="sp-deduct" value="650" onchange="recalcSalary()"></label>
       <label><span>社保公积金</span><input type="number" id="sp-insurance" value="723.5" onchange="recalcSalary()"></label>
-      <label><span>年起征点</span><input type="number" id="sp-threshold" value="5000" onchange="recalcSalary()"></label>
+      <label><span>月免征额</span><input type="number" id="sp-threshold" value="5000" onchange="recalcSalary()"></label>
+      <label><span>专项扣除</span><input type="number" id="sp-extra-deduct" value="3233" onchange="recalcSalary()" title="公积金、补充扣除等，免征额=月免征额+专项扣除"></label>
     </div>
     <div class="sp-result">
       <div class="sp-result-item"><div class="sp-label">课时费收入（当月）</div><div class="sp-val" style="color:#534AB7" id="sp-fee">¥0</div><div class="sp-detail" id="sp-fee-detail"></div></div>
@@ -2163,10 +2164,11 @@ function loadSalaryConfig(){
     document.getElementById("sp-deduct").value=c.deduct||650;
     document.getElementById("sp-insurance").value=c.insurance||723.5;
     if(c.threshold) document.getElementById("sp-threshold").value=c.threshold;
+    document.getElementById("sp-extra-deduct").value=c.extra_deduct!=null?c.extra_deduct:3233;
   }
 }
 function saveSalaryConfig(){
-  const c={base:+document.getElementById("sp-base").value,deduct:+document.getElementById("sp-deduct").value,insurance:+document.getElementById("sp-insurance").value,threshold:+document.getElementById("sp-threshold").value||5000};
+  const c={base:+document.getElementById("sp-base").value,deduct:+document.getElementById("sp-deduct").value,insurance:+document.getElementById("sp-insurance").value,threshold:+document.getElementById("sp-threshold").value||5000,extra_deduct:+document.getElementById("sp-extra-deduct").value||0};
   localStorage.setItem(SALARY_CFG_KEY,JSON.stringify(c));
   scheduleCloudSync();
   recalcSalary(); showToast("工资设置已保存");
@@ -2198,6 +2200,8 @@ function calcCumulativeTax(cumTaxable){
 function recalcSalary(feeOverride){
   const now=new Date(); const curYr=now.getFullYear(), curMo=now.getMonth()+1;
   const threshold=+document.getElementById("sp-threshold").value||5000;
+  const extraDeduct=+document.getElementById("sp-extra-deduct").value||0;
+  const effThreshold=threshold+extraDeduct;
   let tf=feeOverride;
   if(tf===undefined){ const info=getMonthGross(curYr,curMo); tf=info.fee; }
   const base=+document.getElementById("sp-base").value||0;
@@ -2210,10 +2214,10 @@ function recalcSalary(feeOverride){
   for(let m=1;m<curMo;m++){
     const key=curYr+"-"+(m<10?"0":"")+m;
     const rec=hist[key];
-    if(rec){ prevCumTax+=rec.tax; prevCumTaxable+=Math.max(0,rec.gross-threshold); }
+    if(rec){ prevCumTax+=rec.tax; prevCumTaxable+=Math.max(0,rec.gross-effThreshold); }
   }
 
-  const curTaxable=Math.max(0,gross-threshold);
+  const curTaxable=Math.max(0,gross-effThreshold);
   const cumTaxable=prevCumTaxable+curTaxable;
   const cumTax=Math.round(calcCumulativeTax(cumTaxable)*100)/100;
   const curTax=Math.round((cumTax-prevCumTax)*100)/100;
@@ -2222,7 +2226,7 @@ function recalcSalary(feeOverride){
   document.getElementById("sp-fee").textContent="¥"+tf;
   document.getElementById("sp-fee-detail").textContent="¥"+base+" + ¥"+tf+" - ¥"+deduct+" - ¥"+insurance;
   document.getElementById("sp-gross").textContent="¥"+gross.toFixed(2);
-  document.getElementById("sp-gross-detail").textContent="累计应纳税 ¥"+cumTaxable.toFixed(2);
+  document.getElementById("sp-gross-detail").textContent="免征额¥"+effThreshold+" 累计应纳税¥"+cumTaxable.toFixed(2);
   document.getElementById("sp-tax").textContent="¥"+curTax.toFixed(2);
   document.getElementById("sp-tax-detail").textContent="税率档 "+getTaxBracket(cumTaxable);
   document.getElementById("sp-net").textContent="¥"+net.toFixed(2);
@@ -2329,7 +2333,7 @@ function archiveLastMonth(){
   const hist=getSalaryHistory(); if(hist[prevKey]) return;
   const info=getMonthGross(curYr,prevMo);
   const cfg=JSON.parse(localStorage.getItem(SALARY_CFG_KEY)||"{}");
-  const threshold=cfg.threshold||5000; const gross=info.gross;
+  const threshold=(cfg.threshold||5000)+(cfg.extra_deduct||0); const gross=info.gross;
   let prevCumTax=0, prevCumTaxable=0;
   for(let m=1;m<prevMo;m++){
     const k=curYr+"-"+(m<10?"0":"")+m; const rec=hist[k];
@@ -2348,10 +2352,11 @@ function checkImportHistory(){
   if(getCurrentUser()!=="方老师") return;
   const curYr=new Date().getFullYear(); const curMo=new Date().getMonth()+1;
   const knownData={
-    [curYr+"-01"]:{fee:null, gross:7866.4, tax:0},
-    [curYr+"-02"]:{fee:null, gross:9098.9, tax:25.99},
-    [curYr+"-03"]:{fee:null, gross:6776.4, tax:122.19},
-    [curYr+"-04"]:{fee:null, gross:9805.5, tax:49.63}
+    [curYr+"-01"]:{fee:5550, gross:7866.4, tax:0},
+    [curYr+"-02"]:{fee:6772.5, gross:9098.9, tax:25.99},
+    [curYr+"-03"]:{fee:4450, gross:6776.4, tax:122.19},
+    [curYr+"-04"]:{fee:7379, gross:9805.5, tax:49.63},
+    [curYr+"-05"]:{fee:10053, gross:12479.5, tax:142.67}
   };
   let imported=0;
   for(let m=1;m<curMo;m++){
