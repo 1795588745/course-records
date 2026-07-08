@@ -2164,7 +2164,7 @@ function loadSalaryConfig(){
     document.getElementById("sp-deduct").value=c.deduct||650;
     document.getElementById("sp-insurance").value=c.insurance||723.5;
     if(c.threshold) document.getElementById("sp-threshold").value=c.threshold;
-    document.getElementById("sp-extra-deduct").value=c.extra_deduct!=null?c.extra_deduct:3233;
+    document.getElementById("sp-extra-deduct").value=c.extra_deduct!=null?c.extra_deduct:3050;
   }
 }
 function saveSalaryConfig(){
@@ -2210,15 +2210,14 @@ function recalcSalary(feeOverride){
   const gross=base+tf-deduct-insurance;
 
   const hist=getSalaryHistory();
-  let prevCumTax=0, prevCumTaxable=0;
+  let prevCumTax=0, cumGross=0, prevMonths=0;
   for(let m=1;m<curMo;m++){
     const key=curYr+"-"+(m<10?"0":"")+m;
     const rec=hist[key];
-    if(rec){ prevCumTax+=rec.tax; prevCumTaxable+=Math.max(0,rec.gross-effThreshold); }
+    if(rec){ prevCumTax+=rec.tax; cumGross+=rec.gross; prevMonths++; }
   }
-
-  const curTaxable=Math.max(0,gross-effThreshold);
-  const cumTaxable=prevCumTaxable+curTaxable;
+  // 累计预扣法: taxable = Σgross - 月数×免征额
+  const cumTaxable=Math.max(0, cumGross+gross-(prevMonths+1)*effThreshold);
   const cumTax=Math.round(calcCumulativeTax(cumTaxable)*100)/100;
   const curTax=Math.round((cumTax-prevCumTax)*100)/100;
   const net=gross-curTax;
@@ -2334,13 +2333,12 @@ function archiveLastMonth(){
   const info=getMonthGross(curYr,prevMo);
   const cfg=JSON.parse(localStorage.getItem(SALARY_CFG_KEY)||"{}");
   const threshold=(cfg.threshold||5000)+(cfg.extra_deduct||0); const gross=info.gross;
-  let prevCumTax=0, prevCumTaxable=0;
+  let prevCumTax=0, cumGross=0, prevMonths=0;
   for(let m=1;m<prevMo;m++){
     const k=curYr+"-"+(m<10?"0":"")+m; const rec=hist[k];
-    if(rec){ prevCumTax+=rec.tax; prevCumTaxable+=Math.max(0,rec.gross-threshold); }
+    if(rec){ prevCumTax+=rec.tax; cumGross+=rec.gross; prevMonths++; }
   }
-  const prevTaxable=Math.max(0,gross-threshold);
-  const cumTaxable=prevCumTaxable+prevTaxable;
+  const cumTaxable=Math.max(0, cumGross+gross-(prevMonths+1)*threshold);
   const cumTax=Math.round(calcCumulativeTax(cumTaxable)*100)/100;
   const prevTax=Math.round((cumTax-prevCumTax)*100)/100;
   hist[prevKey]={fee:info.fee, gross, tax:prevTax}; saveSalaryHistory(hist);
