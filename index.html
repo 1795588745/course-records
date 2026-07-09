@@ -432,19 +432,18 @@ body{font-family:"PingFang SC","Microsoft YaHei",sans-serif;background:#f5f4f0;c
 .ot-cal-nav:hover{background:#f5f4f0;color:#555}
 .ot-cal-wds{display:grid;grid-template-columns:repeat(7,1fr);text-align:center;font-size:11px;color:#aaa;padding-bottom:6px;border-bottom:1px solid #f0efe9;margin-bottom:4px;width:100%;max-width:560px}
 .ot-cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;width:100%;max-width:560px}
-.ot-day{min-height:70px;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;border-radius:6px;cursor:default;position:relative;font-size:14px;color:#bbb;padding:6px 4px 4px}
+.ot-day{aspect-ratio:1;display:flex;align-items:center;justify-content:center;border-radius:6px;cursor:default;position:relative;font-size:14px;color:#bbb;overflow:hidden;background:#f8f7f5}
 .ot-day:not(.empty){color:#555;cursor:pointer}
-.ot-day:not(.empty):hover{background:#f5f4f0}
-.ot-day.today{font-weight:700;color:#534AB7}
-.ot-day.today::after{content:"";position:absolute;bottom:5px;left:50%;transform:translateX(-50%);width:5px;height:5px;border-radius:50%;background:#534AB7}
-.ot-day .ot-dn{font-size:14px;line-height:1.2}
-.ot-day .ot-mk{display:flex;gap:3px;width:calc(100% - 8px);margin-top:8px;justify-content:center}
-.ot-day .ot-mk span{height:12px;flex:1;min-width:10px;border-radius:4px}
-.ot-mk-ot{background:#F0A040}
-.ot-mk-tx{background:#3CA882}
+.ot-day:not(.empty):hover{filter:brightness(0.94)}
+/* 色块背景 — 铺满整个格子 */
+.ot-day.has-ot{background:#F0A040;color:#fff}
+.ot-day.has-tx{background:#3CA882;color:#fff}
+.ot-day.has-both{background:linear-gradient(135deg,#F0A040 50%,#3CA882 50%);color:#fff}
+.ot-day .ot-dn{position:relative;z-index:1;font-size:13px;font-weight:600;line-height:1;text-shadow:0 1px 2px rgba(0,0,0,0.15)}
+/* today 圆点指示 */
+.ot-day.today .ot-dn::after{content:"";position:absolute;bottom:-8px;left:50%;transform:translateX(-50%);width:4px;height:4px;border-radius:50%;background:currentColor}
 /* 选中有数据的日期时高亮 */
-.ot-day.sel{background:#EDEBF8}
-.ot-day.sel .ot-dn{color:#534AB7}
+.ot-day.sel{box-shadow:0 0 0 2px #534AB7 inset}
 /* ── 日期详情区 ── */
 .ot-detail{display:none;margin-top:6px;padding:6px 8px;background:#f8f7f3;border-radius:8px;font-size:11px}
 .ot-detail.show{display:block}
@@ -2024,14 +2023,13 @@ function renderOtPanel(){
       const ds = String(y)+"-"+String(m).padStart(2,"0")+"-"+String(dayNum).padStart(2,"0");
       const d = agg[ds];
       let cls = "ot-day";
-      let mk = "";
       if(d){
-        if(d.otH > 0 && d.txH > 0){ cls += " has-both"; mk = '<span class="ot-mk-ot"></span><span class="ot-mk-tx"></span>'; }
-        else if(d.otH > 0){ cls += " has-ot"; mk = '<span class="ot-mk-ot"></span>'; }
-        else if(d.txH > 0){ cls += " has-tx"; mk = '<span class="ot-mk-tx"></span>'; }
+        if(d.otH > 0 && d.txH > 0) cls += " has-both";
+        else if(d.otH > 0) cls += " has-ot";
+        else if(d.txH > 0) cls += " has-tx";
       }
       if(ds === today) cls += " today";
-      html += '<div class="'+cls+'" data-date="'+ds+'" onclick="otDayClick(\''+ds+'\',event)"><span class="ot-dn">'+dayNum+'</span><div class="ot-mk">'+mk+'</div></div>';
+      html += '<div class="'+cls+'" data-date="'+ds+'" onclick="otDayClick(\''+ds+'\',event)"><span class="ot-dn">'+dayNum+'</span></div>';
     }
   }
   grid.innerHTML = html;
