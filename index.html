@@ -417,7 +417,7 @@ body{font-family:"PingFang SC","Microsoft YaHei",sans-serif;background:#f5f4f0;c
 .ot-title{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
 .ot-title span{font-size:13px;font-weight:600;color:#2c2c2a}
 .ot-title-btns{display:flex;gap:6px}
-.ot-stats{display:flex;gap:6px;margin-bottom:8px;max-width:480px;margin-left:auto;margin-right:auto}
+.ot-stats{display:flex;gap:6px;margin-bottom:8px;max-width:640px;margin-left:auto;margin-right:auto}
 .ot-stat{flex:1;background:#f8f7f3;border-radius:6px;padding:6px 8px;text-align:center;min-width:0}
 .ot-stat .ot-num{font-size:17px;font-weight:700}
 .ot-stat .ot-lbl{font-size:11px;color:#888;margin-top:2px}
@@ -425,15 +425,15 @@ body{font-family:"PingFang SC","Microsoft YaHei",sans-serif;background:#f5f4f0;c
 .ot-stat.c-green .ot-num{color:#0F6E56}
 .ot-stat.c-purple .ot-num{color:#534AB7}
 /* ── 加班调休月历 ── */
-.ot-cal{margin-top:8px;width:100%;max-width:480px;margin-left:auto;margin-right:auto;display:flex;flex-direction:column;align-items:center}
+.ot-cal{margin-top:8px;width:100%;max-width:640px;margin-left:auto;margin-right:auto;display:flex;flex-direction:column;align-items:center}
 .ot-cal-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;width:100%}
 .ot-cal-hdr .ot-cal-mth{font-size:14px;font-weight:600;color:#2c2c2a}
 .ot-cal-nav{width:26px;height:26px;border:1px solid #e0ded8;border-radius:5px;background:#fff;cursor:pointer;font-size:12px;color:#888;display:flex;align-items:center;justify-content:center;font-family:inherit}
 .ot-cal-nav:hover{background:#f5f4f0;color:#555}
-.ot-cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;width:100%}
+.ot-cal-grid{display:grid;grid-template-columns:repeat(7,1fr);grid-auto-rows:1fr;gap:3px;width:100%}
 .ot-cal-wd{display:flex;align-items:center;justify-content:center;font-size:11px;color:#aaa;height:28px}
 .ot-day{aspect-ratio:1;height:auto;min-height:44px;display:flex;align-items:center;justify-content:center;border-radius:6px;cursor:default;position:relative;font-size:14px;color:#bbb;overflow:hidden}
-.ot-day.empty{background:transparent}
+.ot-day.empty{background:#f5f4f0;border:1px solid #e8e7e3}
 .ot-day:not(.empty){color:#555;cursor:pointer;background:#f8f7f5}
 .ot-day:not(.empty):hover{filter:brightness(0.94)}
 /* 色块背景 — 铺满整个格子 */
