@@ -2219,7 +2219,7 @@ function recalcSalary(feeOverride){
   // 累计预扣法: taxable = Σgross - 月数×免征额
   const cumTaxable=Math.max(0, cumGross+gross-(prevMonths+1)*effThreshold);
   const cumTax=Math.round(calcCumulativeTax(cumTaxable)*100)/100;
-  const curTax=Math.round((cumTax-prevCumTax)*100)/100;
+  const curTax=Math.max(0, Math.round((cumTax-prevCumTax)*100)/100);
   const net=gross-curTax;
 
   document.getElementById("sp-fee").textContent="¥"+tf;
@@ -2340,7 +2340,7 @@ function archiveLastMonth(){
   }
   const cumTaxable=Math.max(0, cumGross+gross-(prevMonths+1)*threshold);
   const cumTax=Math.round(calcCumulativeTax(cumTaxable)*100)/100;
-  const prevTax=Math.round((cumTax-prevCumTax)*100)/100;
+  const prevTax=Math.max(0, Math.round((cumTax-prevCumTax)*100)/100);
   hist[prevKey]={fee:info.fee, gross, tax:prevTax}; saveSalaryHistory(hist);
 }
 
