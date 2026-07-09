@@ -425,21 +425,21 @@ body{font-family:"PingFang SC","Microsoft YaHei",sans-serif;background:#f5f4f0;c
 .ot-stat.c-green .ot-num{color:#0F6E56}
 .ot-stat.c-purple .ot-num{color:#534AB7}
 /* ── 加班调休月历 ── */
-.ot-cal{margin-top:2px;max-width:400px}
-.ot-cal-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:2px}
+.ot-cal{margin-top:2px;width:100%}
+.ot-cal-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}
 .ot-cal-hdr .ot-cal-mth{font-size:12px;font-weight:600;color:#2c2c2a}
 .ot-cal-nav{width:22px;height:22px;border:1px solid #e0ded8;border-radius:5px;background:#fff;cursor:pointer;font-size:10px;color:#888;display:flex;align-items:center;justify-content:center;font-family:inherit}
 .ot-cal-nav:hover{background:#f5f4f0;color:#555}
-.ot-cal-wds{display:grid;grid-template-columns:repeat(7,1fr);text-align:center;font-size:9px;color:#aaa;padding-bottom:2px;border-bottom:1px solid #f0efe9;margin-bottom:1px}
-.ot-cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
-.ot-day{aspect-ratio:1.6;display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:5px;cursor:default;position:relative;font-size:10px;color:#bbb;padding:0 2px}
+.ot-cal-wds{display:grid;grid-template-columns:repeat(7,1fr);text-align:center;font-size:9px;color:#aaa;padding-bottom:4px;border-bottom:1px solid #f0efe9;margin-bottom:2px}
+.ot-cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}
+.ot-day{min-height:54px;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;border-radius:6px;cursor:default;position:relative;font-size:11px;color:#bbb;padding:4px 2px 2px}
 .ot-day:not(.empty){color:#555;cursor:pointer}
 .ot-day:not(.empty):hover{background:#f5f4f0}
 .ot-day.today{font-weight:700;color:#534AB7}
-.ot-day.today::after{content:"";position:absolute;bottom:1px;left:50%;transform:translateX(-50%);width:3px;height:3px;border-radius:50%;background:#534AB7}
-.ot-day .ot-dn{font-size:10px;line-height:1.2}
-.ot-day .ot-mk{display:flex;gap:2px;width:calc(100% - 4px);margin-top:2px}
-.ot-day .ot-mk span{height:6px;flex:1;min-width:4px;border-radius:3px}
+.ot-day.today::after{content:"";position:absolute;bottom:3px;left:50%;transform:translateX(-50%);width:4px;height:4px;border-radius:50%;background:#534AB7}
+.ot-day .ot-dn{font-size:11px;line-height:1.2}
+.ot-day .ot-mk{display:flex;gap:2px;width:calc(100% - 4px);margin-top:4px;justify-content:center}
+.ot-day .ot-mk span{height:8px;flex:1;min-width:8px;border-radius:3px}
 .ot-mk-ot{background:#F0A040}
 .ot-mk-tx{background:#3CA882}
 /* 选中有数据的日期时高亮 */
