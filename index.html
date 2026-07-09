@@ -2210,16 +2210,18 @@ function recalcSalary(feeOverride){
   const gross=base+tf-deduct-insurance;
 
   const hist=getSalaryHistory();
-  let prevCumTax=0, cumGross=0, prevMonths=0;
+  let cumGross=0, prevMonths=0;
   for(let m=1;m<curMo;m++){
     const key=curYr+"-"+(m<10?"0":"")+m;
     const rec=hist[key];
-    if(rec){ prevCumTax+=rec.tax; cumGross+=rec.gross; prevMonths++; }
+    if(rec){ cumGross+=rec.gross; prevMonths++; }
   }
-  // 累计预扣法: taxable = Σgross - 月数×免征额
+  // 累计预扣法：历史累计税不要从 hist.tax 累加（可能不准），统一从 gross 重算
+  const prevCumTaxable=Math.max(0, cumGross-prevMonths*effThreshold);
+  const prevCumTax=Math.round(calcCumulativeTax(prevCumTaxable)*100)/100;
   const cumTaxable=Math.max(0, cumGross+gross-(prevMonths+1)*effThreshold);
   const cumTax=Math.round(calcCumulativeTax(cumTaxable)*100)/100;
-  const curTax=Math.max(0, Math.round((cumTax-prevCumTax)*100)/100);
+  const curTax=Math.round((cumTax-prevCumTax)*100)/100;
   const net=gross-curTax;
 
   document.getElementById("sp-fee").textContent="¥"+tf;
@@ -2333,14 +2335,17 @@ function archiveLastMonth(){
   const info=getMonthGross(curYr,prevMo);
   const cfg=JSON.parse(localStorage.getItem(SALARY_CFG_KEY)||"{}");
   const threshold=(cfg.threshold||5000)+(cfg.extra_deduct||0); const gross=info.gross;
-  let prevCumTax=0, cumGross=0, prevMonths=0;
+  let cumGross=0, prevMonths=0;
   for(let m=1;m<prevMo;m++){
     const k=curYr+"-"+(m<10?"0":"")+m; const rec=hist[k];
-    if(rec){ prevCumTax+=rec.tax; cumGross+=rec.gross; prevMonths++; }
+    if(rec){ cumGross+=rec.gross; prevMonths++; }
   }
+  // 统一从 gross 重算累计税，避免 hist.tax 固化值不一致
+  const prevCumTaxable=Math.max(0, cumGross-prevMonths*threshold);
+  const prevCumTax=Math.round(calcCumulativeTax(prevCumTaxable)*100)/100;
   const cumTaxable=Math.max(0, cumGross+gross-(prevMonths+1)*threshold);
   const cumTax=Math.round(calcCumulativeTax(cumTaxable)*100)/100;
-  const prevTax=Math.max(0, Math.round((cumTax-prevCumTax)*100)/100);
+  const prevTax=Math.round((cumTax-prevCumTax)*100)/100;
   hist[prevKey]={fee:info.fee, gross, tax:prevTax}; saveSalaryHistory(hist);
 }
 
