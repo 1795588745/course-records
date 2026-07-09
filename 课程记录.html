@@ -426,12 +426,12 @@ body{font-family:"PingFang SC","Microsoft YaHei",sans-serif;background:#f5f4f0;c
 .ot-stat.c-purple .ot-num{color:#534AB7}
 /* ── 加班调休月历 ── */
 .ot-cal{margin-top:8px;width:100%;display:flex;flex-direction:column;align-items:center}
-.ot-cal-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;width:100%;max-width:640px}
+.ot-cal-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;width:100%}
 .ot-cal-hdr .ot-cal-mth{font-size:14px;font-weight:600;color:#2c2c2a}
 .ot-cal-nav{width:26px;height:26px;border:1px solid #e0ded8;border-radius:5px;background:#fff;cursor:pointer;font-size:12px;color:#888;display:flex;align-items:center;justify-content:center;font-family:inherit}
 .ot-cal-nav:hover{background:#f5f4f0;color:#555}
-.ot-cal-wds{display:grid;grid-template-columns:repeat(7,1fr);text-align:center;font-size:11px;color:#aaa;padding-bottom:2px;border-bottom:1px solid #f0efe9;margin-bottom:2px;width:100%;max-width:640px}
-.ot-cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;width:100%;max-width:640px}
+.ot-cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;width:100%}
+.ot-cal-wd{display:flex;align-items:center;justify-content:center;font-size:11px;color:#aaa;height:28px}
 .ot-day{height:60px;display:flex;align-items:center;justify-content:center;border-radius:6px;cursor:default;position:relative;font-size:14px;color:#bbb;overflow:hidden}
 .ot-day.empty{background:transparent}
 .ot-day:not(.empty){color:#555;cursor:pointer;background:#f8f7f5}
@@ -598,8 +598,9 @@ body{font-family:"PingFang SC","Microsoft YaHei",sans-serif;background:#f5f4f0;c
         <span class="ot-cal-mth" id="ot-cal-month"></span>
         <button class="ot-cal-nav" onclick="otCalShift(1)">▶</button>
       </div>
-      <div class="ot-cal-wds"><span>日</span><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span></div>
-      <div class="ot-cal-grid" id="ot-cal-grid"></div>
+      <div class="ot-cal-grid" id="ot-cal-grid">
+        <div class="ot-cal-wd">日</div><div class="ot-cal-wd">一</div><div class="ot-cal-wd">二</div><div class="ot-cal-wd">三</div><div class="ot-cal-wd">四</div><div class="ot-cal-wd">五</div><div class="ot-cal-wd">六</div>
+      </div>
     </div>
     <div class="ot-detail" id="ot-detail">
       <div class="ot-detail-hd"><span id="ot-detail-date"></span><button onclick="closeOtDetail()">✕</button></div>
@@ -2015,11 +2016,14 @@ function renderOtPanel(){
   const today = new Date().toISOString().slice(0,10);
 
   const grid = document.getElementById("ot-cal-grid");
-  let html = "";
+  // 保留表头（前7个），只清除日期格子
+  while(grid.children.length > 7) grid.removeChild(grid.lastChild);
+  let frag = document.createDocumentFragment();
   for(let i = 0; i < 42; i++){
     const dayNum = i - startDow + 1;
+    const div = document.createElement("div");
     if(dayNum < 1 || dayNum > totalDays){
-      html += '<div class="ot-day empty"></div>';
+      div.className = "ot-day empty";
     } else {
       const ds = String(y)+"-"+String(m).padStart(2,"0")+"-"+String(dayNum).padStart(2,"0");
       const d = agg[ds];
@@ -2030,10 +2034,14 @@ function renderOtPanel(){
         else if(d.txH > 0) cls += " has-tx";
       }
       if(ds === today) cls += " today";
-      html += '<div class="'+cls+'" data-date="'+ds+'" onclick="otDayClick(\''+ds+'\',event)"><span class="ot-dn">'+dayNum+'</span></div>';
+      div.className = cls;
+      div.dataset.date = ds;
+      div.onclick = function(ev){ otDayClick(ds, ev); };
+      div.innerHTML = '<span class="ot-dn">'+dayNum+'</span>';
     }
+    frag.appendChild(div);
   }
-  grid.innerHTML = html;
+  grid.appendChild(frag);
   closeOtDetail();
 }
 
