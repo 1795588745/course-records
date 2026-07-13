@@ -1423,9 +1423,9 @@ function calcFee(type,dur,cnt){
   // 一对多
   if(dur===1.5) return m[1.5]!==undefined ? m[1.5] : 0;
   if(cnt>4){
-    // 超4人：5人=底价，每多1人加10（初中130起，高中160起）
+    // 超4人：1人=底价，每多1人加10（初中130起，高中160起）
     const base = type.includes("高中")||type.includes("高一")||type.includes("高二")||type.includes("高三") ? 160 : 130;
-    return base + (cnt - 5) * 10;
+    return base + (cnt - 1) * 10;
   }
   return cnt>0 ? (m[Math.min(cnt,4)]||0) : 0;
 }
