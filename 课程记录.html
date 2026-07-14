@@ -445,18 +445,20 @@ body{font-family:"PingFang SC","Microsoft YaHei",sans-serif;background:#f5f4f0;c
 .ot-day.today .ot-dn::after{content:"";position:absolute;bottom:-8px;left:50%;transform:translateX(-50%);width:4px;height:4px;border-radius:50%;background:currentColor}
 /* 选中有数据的日期时高亮 */
 .ot-day.sel{box-shadow:0 0 0 2px #534AB7 inset}
-/* ── 日期详情区 ── */
-.ot-detail{display:none;margin-top:6px;padding:6px 8px;background:#f8f7f3;border-radius:8px;font-size:11px}
-.ot-detail.show{display:block}
-.ot-detail-hd{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}
-.ot-detail-hd span{font-weight:600;color:#2c2c2a;font-size:11px}
-.ot-detail-hd button{font-size:10px;padding:2px 6px;border:none;background:transparent;color:#aaa;cursor:pointer}
-.ot-detail-row{display:flex;align-items:center;gap:6px;padding:2px 0;font-size:11px}
-.ot-detail-row .ot-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
-.ot-dot-ot{background:#F0A040}
-.ot-dot-tx{background:#3CA882}
-.ot-detail-row .ot-dinfo{flex:1;color:#888}
-.ot-detail-row .ot-ddel{font-size:10px;color:#e88;cursor:pointer;background:none;border:none;padding:1px 4px}
+/* ── 点击日期弹出快捷菜单 ── */
+.ot-popup{position:fixed;z-index:100;background:#fff;border-radius:10px;box-shadow:0 4px 20px rgba(0,0,0,0.15);padding:10px;min-width:150px;display:none}
+.ot-popup.show{display:block}
+.ot-popup .ot-pop-date{font-size:11px;color:#aaa;margin-bottom:8px;text-align:center}
+.ot-popup .ot-pop-act{display:flex;gap:6px;margin-bottom:6px}
+.ot-popup .ot-pop-act button{flex:1;padding:6px 0;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;color:#fff}
+.ot-pop-btn-ot{background:#F0A040}
+.ot-pop-btn-ot:hover{background:#e09030}
+.ot-pop-btn-tx{background:#3CA882}
+.ot-pop-btn-tx:hover{background:#2c9872}
+.ot-popup .ot-pop-rec{margin-top:4px;border-top:1px solid #f0efe9;padding-top:4px}
+.ot-popup .ot-pop-row{display:flex;align-items:center;gap:6px;padding:3px 0;font-size:11px;color:#888}
+.ot-popup .ot-pop-row .ot-pop-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.ot-popup .ot-pop-row .ot-pop-del{font-size:10px;color:#e88;cursor:pointer;background:none;border:none;padding:1px 4px;margin-left:auto}
 </style>
 </head>
 <body>
@@ -602,10 +604,7 @@ body{font-family:"PingFang SC","Microsoft YaHei",sans-serif;background:#f5f4f0;c
         <div class="ot-cal-wd">日</div><div class="ot-cal-wd">一</div><div class="ot-cal-wd">二</div><div class="ot-cal-wd">三</div><div class="ot-cal-wd">四</div><div class="ot-cal-wd">五</div><div class="ot-cal-wd">六</div>
       </div>
     </div>
-    <div class="ot-detail" id="ot-detail">
-      <div class="ot-detail-hd"><span id="ot-detail-date"></span><button onclick="closeOtDetail()">✕</button></div>
-      <div id="ot-detail-rows"></div>
-    </div>
+    <div class="ot-popup" id="ot-popup"></div>
   </div>
 
   <div class="month-sel">
@@ -2042,46 +2041,75 @@ function renderOtPanel(){
     frag.appendChild(div);
   }
   grid.appendChild(frag);
-  closeOtDetail();
+  closeOtPopup();
 }
 
 function otDayClick(date, ev){
   ev.stopPropagation();
   const ot = getOvertimeList().filter(r=>r.date===date);
   const tx = getTxList().filter(r=>r.date===date);
-  if(!ot.length && !tx.length){ closeOtDetail(); return; }
 
-  // 高亮选中日期
-  document.querySelectorAll(".ot-day.sel").forEach(el=>el.classList.remove("sel"));
-  const td = document.querySelector('.ot-day[data-date="'+date+'"]');
-  if(td) td.classList.add("sel");
+  const pop = document.getElementById("ot-popup");
+  // 定位弹出框到点击的格子下方
+  const rect = ev.target.closest(".ot-day").getBoundingClientRect();
+  let left = rect.left + rect.width/2 - 75; // 居中
+  let top = rect.bottom + 4;
+  if(top + 200 > window.innerHeight) top = rect.top - 210; // 翻转到上方
+  if(left < 8) left = 8;
+  if(left + 150 > window.innerWidth - 8) left = window.innerWidth - 158;
+  pop.style.left = left+"px";
+  pop.style.top = top+"px";
 
   // 格式化日期
   const [yy,mm,dd] = date.split("-");
-  document.getElementById("ot-detail-date").textContent = yy+"年"+parseInt(mm)+"月"+parseInt(dd)+"日";
+  const dateShow = yy+"年"+parseInt(mm)+"月"+parseInt(dd)+"日";
 
-  let rows = "";
-  ot.forEach(r => {
-    rows += '<div class="ot-detail-row"><span class="ot-dot ot-dot-ot"></span><span class="ot-dinfo">加班 '+r.hours+'h'+(r.note?' — '+r.note:'')+'</span><button class="ot-ddel" onclick="delOt(\''+r.id+'\')">删</button></div>';
-  });
-  tx.forEach(r => {
-    rows += '<div class="ot-detail-row"><span class="ot-dot ot-dot-tx"></span><span class="ot-dinfo">调休 '+r.hours+'h'+(r.note?' — '+r.note:'')+'</span><button class="ot-ddel" onclick="delTx(\''+r.id+'\')">删</button></div>';
-  });
+  let html = '<div class="ot-pop-date">'+dateShow+'</div>';
+  html += '<div class="ot-pop-act">';
+  html += '<button class="ot-pop-btn-ot" onclick="openOtAdd(\''+date+'\')">➕ 加班</button>';
+  html += '<button class="ot-pop-btn-tx" onclick="openTxAdd(\''+date+'\')">➖ 调休</button>';
+  html += '</div>';
 
-  document.getElementById("ot-detail-rows").innerHTML = rows;
-  document.getElementById("ot-detail").classList.add("show");
+  if(ot.length || tx.length){
+    html += '<div class="ot-pop-rec">';
+    ot.forEach(r => {
+      html += '<div class="ot-pop-row"><span class="ot-pop-dot" style="background:#F0A040"></span>加班 '+r.hours+'h'+(r.note?' — '+r.note:'')+'<button class="ot-pop-del" onclick="delOt(\''+r.id+'\')">删</button></div>';
+    });
+    tx.forEach(r => {
+      html += '<div class="ot-pop-row"><span class="ot-pop-dot" style="background:#3CA882"></span>调休 '+r.hours+'h'+(r.note?' — '+r.note:'')+'<button class="ot-pop-del" onclick="delTx(\''+r.id+'\')">删</button></div>';
+    });
+    html += '</div>';
+  }
+
+  pop.innerHTML = html;
+  pop.classList.add("show");
+
+  // 高亮选中日期
+  document.querySelectorAll(".ot-day.sel").forEach(el=>el.classList.remove("sel"));
+  const td = ev.target.closest(".ot-day");
+  if(td) td.classList.add("sel");
 }
 
-function closeOtDetail(){
-  document.getElementById("ot-detail").classList.remove("show");
+function closeOtPopup(){
+  const pop = document.getElementById("ot-popup");
+  pop.classList.remove("show");
   document.querySelectorAll(".ot-day.sel").forEach(el=>el.classList.remove("sel"));
 }
 
-function openOtAdd(){
-  document.getElementById("ot-date").value = new Date().toISOString().slice(0,10);
+// 全局点击关闭弹出框
+document.addEventListener("click", function(e){
+  const pop = document.getElementById("ot-popup");
+  if(pop.classList.contains("show") && !e.target.closest(".ot-popup") && !e.target.closest(".ot-day")){
+    closeOtPopup();
+  }
+});
+
+function openOtAdd(date){
+  document.getElementById("ot-date").value = date || new Date().toISOString().slice(0,10);
   document.getElementById("ot-hours").value = "";
   document.getElementById("ot-note").value = "";
   document.getElementById("ot-add-modal").classList.add("open");
+  closeOtPopup();
 }
 function closeOtAdd(){ document.getElementById("ot-add-modal").classList.remove("open"); }
 
@@ -2105,15 +2133,16 @@ function delOt(id){
   renderOtPanel();
 }
 
-function openTxAdd(){
+function openTxAdd(date){
   const ot = getOvertimeList();
   const tx = getTxList();
   const avail = Math.max(0, ot.reduce((s,r)=>s+(+r.hours||0),0) - tx.reduce((s,r)=>s+(+r.hours||0),0));
   document.getElementById("tx-avail-show").textContent = avail % 1 === 0 ? avail : avail.toFixed(1);
-  document.getElementById("tx-date").value = new Date().toISOString().slice(0,10);
+  document.getElementById("tx-date").value = date || new Date().toISOString().slice(0,10);
   document.getElementById("tx-hours").value = "";
   document.getElementById("tx-note").value = "";
   document.getElementById("tx-add-modal").classList.add("open");
+  closeOtPopup();
 }
 function closeTxAdd(){ document.getElementById("tx-add-modal").classList.remove("open"); }
 
