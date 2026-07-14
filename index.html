@@ -1414,7 +1414,7 @@ function saveDetached(){
 // ══════════════════════════════
 //  费用计算
 // ══════════════════════════════
-function calcFee(type,dur,cnt){
+function calcFee(type,dur,cnt,date){
   const rules = getActiveFeeRules();
   const m = rules[type];
   if(!m) return 0;
@@ -1422,8 +1422,13 @@ function calcFee(type,dur,cnt){
   // 一对多
   if(dur===1.5) return m[1.5]!==undefined ? m[1.5] : 0;
   if(cnt>4){
-    // 超4人：1人=底价，每多1人加10（初中130起，高中160起）
-    const base = type.includes("高中")||type.includes("高一")||type.includes("高二")||type.includes("高三") ? 160 : 130;
+    const isSenior = type.includes("高中")||type.includes("高一")||type.includes("高二")||type.includes("高三");
+    // 2026年7月起：高中一对多 >4人 涨价，底价160 + 每多1人加18
+    if(isSenior && date && date >= "2026-07-01"){
+      return 160 + (cnt - 1) * 18;
+    }
+    // 原规则：初中130起，高中160起，每多1人加10
+    const base = isSenior ? 160 : 130;
     return base + (cnt - 1) * 10;
   }
   return cnt>0 ? (m[Math.min(cnt,4)]||0) : 0;
@@ -1483,7 +1488,7 @@ function generateFromRules(){
       if(_detached.indexOf(key) > -1) return;
       // 时间重叠检测：与已有记录 + 本轮已生成的课程
       if(isTimeConflict(dateStr, rule.startTime, rule.duration, null, newRecs)) return;
-      const fee = calcFee(rule.type, rule.duration, rule.students.length);
+      const fee = calcFee(rule.type, rule.duration, rule.students.length, dateStr);
       const tierId = getActiveFeeTierId();
       newRecs.push({
         id: "r_"+Date.now()+"_"+Math.floor(Math.random()*1e9),
@@ -1789,7 +1794,7 @@ function calcPreview(){
   const type=document.getElementById("i-type").value;
   const dur=parseFloat(document.getElementById("i-dur").value);
   const cnt=getChecked().length;
-  const fee=calcFee(type,dur,cnt);
+  const fee=calcFee(type,dur,cnt,document.getElementById("i-date").value);
   document.getElementById("fee-amt").textContent="¥"+fee;
   document.getElementById("fee-rule").textContent=type.includes("一对多")?`${cnt}人 → ${fee}元`:`${dur}h → ${fee}元`;
 }
@@ -1885,7 +1890,7 @@ async function saveRecord(){
     alert(`${date} ${start}~${endTime(start,dur)} 与已有课程「${conf.students.join("、")}」(${conf.startTime}~${cEnd}) 时间重叠，不允许排课！`);
     return;
   }
-  const fee=calcFee(type,dur,stus.length);
+  const fee=calcFee(type,dur,stus.length,date);
   const tierId = getActiveFeeTierId();
   if(editId!==null){
     const i=RECS.findIndex(r=>String(r.id)===String(editId));
