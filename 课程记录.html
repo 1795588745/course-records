@@ -726,9 +726,10 @@ body{font-family:"PingFang SC","Microsoft YaHei",sans-serif;background:#f5f4f0;c
       <div class="frow full"><div class="fg"><label>月份（格式：YYYY-MM）</label><input type="month" id="sh-month" placeholder="如 2026-01"></div></div>
       <div class="frow full"><div class="fg"><label>税前工资（元）</label><input type="number" id="sh-gross" placeholder="如 8500" step="0.01"></div></div>
       <div class="frow full"><div class="fg"><label>课时费（元，可选）</label><input type="number" id="sh-fee" placeholder="留空表示未记录" step="0.01"></div></div>
+      <div class="frow full"><div class="fg"><label>个税（元，留空则自动计算）</label><input type="number" id="sh-tax" placeholder="留空则自动计算" step="0.01"></div></div>
       <div style="font-size:11px;color:#888;margin-top:-4px;line-height:1.6">
-        个税由系统按累计预扣法自动计算，无需手动填写。<br>
-        税后实发 = 税前工资 - 自动计算的个税。<br>
+        个税默认由系统按累计预扣法自动计算。如与实际工资条不符，可在此手动填写，系统将以此值为准。<br>
+        手动填写的个税会标注"(手动)"，且影响后续月份的累计计算。<br>
         课时费仅作参考展示，不影响累计个税的计算逻辑。
       </div>
     </div>
@@ -2237,17 +2238,38 @@ function calcCumulativeTax(cumTaxable){
 }
 
 /* 计算某月个税（累计预扣法）。
-   所有历史 tax 均由本函数根据 gross 实时重算，不读取 hist.tax 固化值 */
+   如果 hist 中某月有 tax 字段（手动覆盖），则使用该值作为实际已扣税额；
+   否则按公式计算。当前月始终按公式计算。 */
 function calcMonthTax(yr, mo, effThreshold, hist){
   let cumGross=0, months=0;
+  let actualCumTax=0; // 实际累计已扣税额（手动优先，否则公式）
+
   for(let m=1; m<=mo; m++){
     const key=yr+"-"+(m<10?"0":"")+m;
     const rec=hist[key];
-    if(rec && rec.gross!=null){ cumGross+=rec.gross; months++; }
-  }
-  const cumTaxable=Math.max(0, cumGross - months*effThreshold);
-  const cumTax=Math.round(calcCumulativeTax(cumTaxable)*100)/100;
+    if(rec && rec.gross!=null){
+      cumGross+=rec.gross; months++;
+    }
+    const cumTaxable=Math.max(0, cumGross - months*effThreshold);
+    const cumTax=Math.round(calcCumulativeTax(cumTaxable)*100)/100;
 
+    if(m < mo){
+      // 前序月份：有手动 tax 就用，否则按公式算
+      if(rec && rec.tax != null){
+        actualCumTax = Math.round((actualCumTax + rec.tax)*100)/100;
+      } else {
+        const monthTax = Math.round((cumTax - actualCumTax)*100)/100;
+        actualCumTax = Math.round((actualCumTax + monthTax)*100)/100;
+      }
+    }
+  }
+
+  // 当前月累计税额（公式计算）
+  const curCumTaxable = Math.max(0, cumGross - months*effThreshold);
+  const curCumTax = Math.round(calcCumulativeTax(curCumTaxable)*100)/100;
+  const curTax = Math.round((curCumTax - actualCumTax)*100)/100;
+
+  // 前序月份统计（用于显示）
   let prevCumGross=0, prevMonths=0;
   for(let m=1; m<mo; m++){
     const key=yr+"-"+(m<10?"0":"")+m;
@@ -2255,10 +2277,8 @@ function calcMonthTax(yr, mo, effThreshold, hist){
     if(rec && rec.gross!=null){ prevCumGross+=rec.gross; prevMonths++; }
   }
   const prevCumTaxable=Math.max(0, prevCumGross - prevMonths*effThreshold);
-  const prevCumTax=Math.round(calcCumulativeTax(prevCumTaxable)*100)/100;
 
-  const curTax=Math.round((cumTax - prevCumTax)*100)/100;
-  return {curTax, cumTax, prevCumTax, cumTaxable, prevCumTaxable, months, prevMonths};
+  return {curTax, cumTax: curCumTax, prevCumTax: actualCumTax, cumTaxable: curCumTaxable, prevCumTaxable, months, prevMonths};
 }
 
 function recalcSalary(feeOverride){
@@ -2310,12 +2330,14 @@ function renderSalaryHistory(hist,curYr,curMo,effThreshold){
     const r=hist[key]; const isCur=key===(curYr+"-"+(curMo<10?"0":"")+curMo);
     const yr=parseInt(key.split("-")[0]), mo=parseInt(key.split("-")[1]);
     const tr=calcMonthTax(yr,mo,effThreshold,hist);
-    const tax=tr.curTax;
+    // 有手动 tax 就显示手动值，否则显示公式计算值
+    const tax = r.tax != null ? r.tax : tr.curTax;
     const net=((r.gross||0)-tax).toFixed(2);
     const feeDisp=r.fee!=null?'¥'+r.fee:'—';
+    const taxBadge = r.tax != null ? ' <span style="font-size:10px;color:#aaa">(手动)</span>' : '';
     html+=`<tr${isCur?' style="background:#EEEDFE"':''}>
       <td>${key}</td><td>${feeDisp}</td><td>¥${r.gross||0}</td>
-      <td class="td-tax">¥${tax.toFixed(2)}</td>
+      <td class="td-tax">¥${tax.toFixed(2)}${taxBadge}</td>
       <td class="td-net">¥${net}</td>
       <td class="td-ops">
         <button class="btn-edit-sm" onclick="openSalaryEdit('${key}')">编辑</button>
@@ -2343,6 +2365,7 @@ function openSalaryEdit(key){
   document.getElementById("sh-month").style.background=key?"#f5f4f0":"";
   document.getElementById("sh-gross").value=r?r.gross:"";
   document.getElementById("sh-fee").value=r?(r.fee!=null?r.fee:""):"";
+  document.getElementById("sh-tax").value=r?(r.tax!=null?r.tax:""):"";
   document.getElementById("sh-modal-title").textContent=key?"编辑工资记录":"手动添加工资记录";
   document.getElementById("sh-modal").classList.add("open");
   setTimeout(()=>document.getElementById("sh-month").focus(),80);
@@ -2356,11 +2379,20 @@ function saveSalaryEdit(){
   const gross=parseFloat(document.getElementById("sh-gross").value);
   const feeRaw=document.getElementById("sh-fee").value.trim();
   const fee=feeRaw===""?null:parseFloat(feeRaw);
+  const taxRaw=document.getElementById("sh-tax").value.trim();
   if(!month||!/^\d{4}-\d{2}$/.test(month)){alert("请输入正确的月份格式，如 2026-01");return;}
   if(isNaN(gross)){alert("请输入税前工资");return;}
   const hist=getSalaryHistory();
   if(!origKey && hist[month]){if(!confirm(`${month} 已有记录，确认覆盖？`))return;}
-  hist[month]={fee:fee, gross:round2(gross)};  // 不再保存 tax，由系统统一实时计算
+  const existing = hist[month] || {};
+  const record = {fee:fee, gross:round2(gross)};
+  // 用户输入了税额就保存为手动覆盖，否则保留已有 tax，都没有就不存
+  if(taxRaw !== ""){
+    record.tax = round2(parseFloat(taxRaw));
+  } else if(existing.tax != null){
+    record.tax = existing.tax;
+  }
+  hist[month] = record;
   saveSalaryHistory(hist);
   closeSalaryEdit();
   recalcSalary();
@@ -2400,11 +2432,11 @@ function checkImportHistory(){
   if(getCurrentUser()!=="方老师") return;
   const curYr=new Date().getFullYear(); const curMo=new Date().getMonth()+1;
   const knownData={
-    [curYr+"-01"]:{fee:5550, gross:7866.4},
-    [curYr+"-02"]:{fee:6772.5, gross:9098.9},
-    [curYr+"-03"]:{fee:4450, gross:6776.4},
-    [curYr+"-04"]:{fee:7379, gross:9805.5},
-    [curYr+"-05"]:{fee:10053, gross:12479.5}
+    [curYr+"-01"]:{fee:5550, gross:7866.4, tax:0},
+    [curYr+"-02"]:{fee:6772.5, gross:9098.9, tax:25.99},
+    [curYr+"-03"]:{fee:4450, gross:6776.4, tax:122.19},
+    [curYr+"-04"]:{fee:7379, gross:9805.5, tax:49.63},
+    [curYr+"-05"]:{fee:10053, gross:12479.5, tax:142.67}
   };
   let imported=0;
   for(let m=1;m<curMo;m++){
