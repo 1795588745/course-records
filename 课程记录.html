@@ -214,6 +214,11 @@ body{font-family:"PingFang SC","Microsoft YaHei",sans-serif;background:#f5f4f0;c
 
 .rule-row{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;margin-bottom:4px;background:#f9f8f5;border-left:3px solid #f0ad4e}
 .rule-row:hover{background:#f0eff9}
+.rule-row.rule-finished{background:#f5f4f0;border-left-color:#c0bfbc;opacity:.7}
+.rule-row.rule-finished:hover{background:#edebe7}
+.finished-badge{display:inline-block;font-size:10px;color:#fff;background:#999;padding:1px 6px;border-radius:3px;margin-left:6px;vertical-align:middle}
+.finished-sep{cursor:pointer;color:#888;font-size:12px;padding:8px 0;margin-top:8px;border-top:1px dashed #e0ddd8;user-select:none}
+.finished-sep:hover{color:#534AB7}
 .rule-info{flex:1;font-size:13px;line-height:1.5}
 .rule-info .ri-day{font-weight:600;color:#BA7517}
 .rule-info .ri-time{color:#888;font-size:12px}
@@ -1476,6 +1481,7 @@ function generateFromRules(){
   const days = Array.from({length:7},(_,i)=>{ const d=new Date(weekStart); d.setDate(d.getDate()+i); return d; });
 
   RULES.forEach(rule=>{
+    if(rule.finished) return; // 已结课规则不再生成课程
     // 兼容旧数据：dayOfWeek(单值) → daysOfWeek(数组)
     const dows = rule.daysOfWeek && rule.daysOfWeek.length ? rule.daysOfWeek : (rule.dayOfWeek ? [rule.dayOfWeek] : []);
     days.forEach(d=>{
@@ -2464,17 +2470,72 @@ function openRuleMgr(){ renderRuleList(); document.getElementById("rule-modal").
 function closeRuleMgr(){ document.getElementById("rule-modal").classList.remove("open"); }
 
 function renderRuleList(){
-  document.getElementById("rule-count-lbl").textContent=`共 ${RULES.length} 条`;
+  const activeRules = RULES.filter(r=>!r.finished);
+  const finishedRules = RULES.filter(r=>r.finished);
+  document.getElementById("rule-count-lbl").textContent=`共 ${activeRules.length} 条` + (finishedRules.length ? ` (已结课 ${finishedRules.length})` : ``);
   const box=document.getElementById("rule-list");
   if(!RULES.length){box.innerHTML='<div style="color:#aaa;text-align:center;padding:20px;font-size:13px">暂无排课规则</div>';return;}
-  box.innerHTML=RULES.map(r=>{
+
+  function ruleHTML(r, finished){
     const stuText=r.students.slice(0,4).join("、")+(r.students.length>4?"…":"");
     let dateRange="";
     if(r.startDate||r.endDate){ const s=r.startDate?formatDateCN(r.startDate):"开始"; const e=r.endDate?formatDateCN(r.endDate):"以后"; dateRange=` · ${s} ~ ${e}`; }
     const dows = r.daysOfWeek && r.daysOfWeek.length ? r.daysOfWeek : (r.dayOfWeek ? [r.dayOfWeek] : []);
     const dayLabel = dows.length===7?"每天":dows.length===0?"未设置":("每"+dows.map(d=>DAY_NAMES[d-1]).join(""));
-    return `<div class="rule-row"><div class="rule-info"><span class="ri-day">${dayLabel}</span><span class="ri-time">${r.startTime} · ${r.duration}h · ${r.type}</span><div class="ri-detail">${stuText}${r.note?" · "+r.note:""}${dateRange}</div></div><button class="btn-edit-sm" onclick="editRule('${r.id}')">编辑</button><button class="btn-danger-sm" onclick="deleteRule('${r.id}')">删除</button></div>`;
-  }).join("");
+    const cls = finished ? 'rule-row rule-finished' : 'rule-row';
+    const badge = finished ? '<span class="finished-badge">已结课</span>' : '';
+    const btns = finished
+      ? `<button class="btn-edit-sm" onclick="reactivateRule('${r.id}')">重新激活</button><button class="btn-danger-sm" onclick="deleteRule('${r.id}')">删除</button>`
+      : `<button class="btn btn-success" style="font-size:11px;padding:3px 10px" onclick="finishRule('${r.id}')">结课</button><button class="btn-edit-sm" onclick="editRule('${r.id}')">编辑</button><button class="btn-danger-sm" onclick="deleteRule('${r.id}')">删除</button>`;
+    return `<div class="${cls}"><div class="rule-info"><span class="ri-day">${dayLabel}</span>${badge}<span class="ri-time">${r.startTime} · ${r.duration}h · ${r.type}</span><div class="ri-detail">${stuText}${r.note?" · "+r.note:""}${dateRange}</div></div><div style="display:flex;gap:4px;align-items:center">${btns}</div></div>`;
+  }
+
+  let html = '';
+  // 活跃规则
+  if(!activeRules.length){
+    html += '<div style="color:#aaa;text-align:center;padding:20px;font-size:13px">暂无排课规则</div>';
+  } else {
+    html += activeRules.map(r=>ruleHTML(r,false)).join("");
+  }
+  // 已结课规则
+  if(finishedRules.length){
+    html += `<div class="finished-sep" onclick="toggleFinished()"><span id="finished-arrow">▶</span> 已结课规则 (${finishedRules.length})</div>`;
+    html += `<div id="finished-block" style="display:none">${finishedRules.map(r=>ruleHTML(r,true)).join("")}</div>`;
+  }
+  box.innerHTML = html;
+}
+
+//  结课 / 重新激活
+function finishRule(rid){
+  const rule = RULES.find(r=>String(r.id)===String(rid));
+  if(!rule) return;
+  if(!confirm("确定将该规则结课？\n\n结课后：已有课程记录保留不变，但规则将不再生成新课程，并从活跃列表中隐藏。")) return;
+  rule.finished = true;
+  saveRules();
+  // 清除本规则当天之后未手动编辑过的课程记录（可选：仅标记，不做删除）
+  renderRuleList();
+  refresh();
+}
+
+function reactivateRule(rid){
+  const rule = RULES.find(r=>String(r.id)===String(rid));
+  if(!rule) return;
+  rule.finished = false;
+  saveRules();
+  renderRuleList();
+  refresh();
+}
+
+function toggleFinished(){
+  const blk = document.getElementById("finished-block");
+  const arr = document.getElementById("finished-arrow");
+  if(blk.style.display==="none"){
+    blk.style.display="";
+    arr.textContent="▼";
+  } else {
+    blk.style.display="none";
+    arr.textContent="▶";
+  }
 }
 
 async function deleteRule(rid){
