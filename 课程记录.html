@@ -103,6 +103,9 @@ body{font-family:"PingFang SC","Microsoft YaHei",sans-serif;background:#f5f4f0;c
 .cb.cm{background:#3BA99C;color:#fff}
 .cb.ch{background:#E67E22;color:#fff}
 .cb.from-rule{border-left:3px solid #f0ad4e}
+.cb.cb-locked{cursor:not-allowed;opacity:.65;border:2px dashed #fff;border-left:3px solid #999}
+.cb.cb-locked:hover{filter:none;opacity:.65}
+.cb-lock{position:absolute;top:2px;right:3px;font-size:10px;opacity:.8}
 .cb-time{font-size:11px;opacity:.85;white-space:nowrap}
 .cb-stu{font-size:12px;font-weight:600;white-space:normal;word-break:break-all;line-height:1.4;margin-top:2px}
 .cb-fee{font-size:11px;opacity:.75;margin-top:2px}
@@ -1457,6 +1460,13 @@ function openDatePicker(){ const dp=document.getElementById("date-picker"); dp.s
 function onDatePickerChange(val){ if(!val) return; weekStart=getMonday(new Date(val+"T00:00:00")); document.getElementById("date-picker").style.pointerEvents="none"; refresh(); }
 
 // ══════════════════════════════
+// ── 锁定检测：已结课规则关联的课程不允许编辑/拖拽/删除 ──
+function isLocked(rec){
+  if(!rec || !rec.ruleId) return false;
+  const rule = RULES.find(r=>String(r.id)===String(rec.ruleId));
+  return !!(rule && rule.finished);
+}
+
 //  规则生成课程（客户端）
 // ══════════════════════════════
 // ── 时间冲突检测：任意两节课不允许时间重叠 ──
@@ -1583,13 +1593,19 @@ function renderCal(){
     const bgColor = typeColor(r.type);
     const stuText = r.students.join("、");
     const isFromRule = !!r.ruleId;
+    const locked = isLocked(r);
     const block = document.createElement("div");
-    block.className = `cb${isFromRule?" from-rule":""}`;
+    block.className = `cb${isFromRule?" from-rule":""}${locked?" cb-locked":""}`;
     block.style.cssText = `top:${topPx}px;height:${heightPx}px;background:${bgColor};color:#fff`;
-    block.innerHTML = `<div class="cb-time">${r.startTime}–${endTime(r.startTime,r.duration)} (${r.duration}h)</div><div class="cb-stu">${stuText}</div>${heightPx>36?`<div class="cb-fee">¥${r.fee}</div>`:""}`;
+    const lockIcon = locked ? '<span class="cb-lock">🔒</span>' : '';
+    block.innerHTML = `${lockIcon}<div class="cb-time">${r.startTime}–${endTime(r.startTime,r.duration)} (${r.duration}h)</div><div class="cb-stu">${stuText}</div>${heightPx>36?`<div class="cb-fee">¥${r.fee}</div>`:""}`;
     block.dataset.recId = r.id;
-    block.onclick = (e)=>{ e.stopPropagation(); if(block._wasDragged){ block._wasDragged=false; return; } openEdit(r.id); };
-    bindDrag(block, r.id);
+    if(locked){
+      block.onclick = (e)=>{ e.stopPropagation(); showToast("该课程已结课锁定，不可编辑"); };
+    } else {
+      block.onclick = (e)=>{ e.stopPropagation(); if(block._wasDragged){ block._wasDragged=false; return; } openEdit(r.id); };
+      bindDrag(block, r.id);
+    }
     col.appendChild(block);
   });
 }
@@ -1715,6 +1731,7 @@ function onSlotClick(date,hour,e){
 
 function openEdit(id){
   const r=RECS.find(x=>String(x.id)===String(id)); if(!r) return;
+  if(isLocked(r)){ showToast("该课程已结课锁定，不可编辑"); return; }
   editId=r.id; isRuleMode=false; editingRuleId=null;
   document.getElementById("add-title").textContent="编辑课程";
   document.getElementById("del-btn").style.display="inline-block";
@@ -1883,6 +1900,11 @@ async function saveRecord(){
   // ── 普通课程 ──
   const date=document.getElementById("i-date").value;
   if(!date){alert("请选择日期");return}
+  // 防御：已结课锁定的课程不允许保存修改
+  if(editId!==null){
+    const tgt = RECS.find(r=>String(r.id)===String(editId));
+    if(tgt && isLocked(tgt)){ showToast("该课程已结课锁定，不可编辑"); return; }
+  }
   // 检查时间冲突（时间范围重叠）
   generateFromRules(); // 先同步规则生成的课程，确保检测覆盖所有记录
   if(isTimeConflict(date, start, dur, editId)){
@@ -1934,6 +1956,8 @@ async function deleteEdit(){
     return;
   }
   if(editId===null) return;
+  const tgt = RECS.find(r=>String(r.id)===String(editId));
+  if(tgt && isLocked(tgt)){ showToast("该课程已结课锁定，不可删除"); return; }
   if(!confirm("确认删除此课程？")) return;
   const delRec = RECS.find(r=>String(r.id)===String(editId));
   if(delRec && delRec.ruleId){
@@ -1969,7 +1993,11 @@ function renderList(){
     const [yy,mm,dd]=r.date.split("-");
     const timeCell=r.startTime?`<span style="white-space:nowrap;color:#888">${r.startTime}</span>`:`<span style="white-space:nowrap;color:#c0392b;font-size:11px;background:#fdf2f2;padding:1px 6px;border-radius:4px;border:1px solid #f5c6c6">未排课</span>`;
     const ruleTag=r.ruleId?'<span class="rule-tag">规则</span>':"";
-    return `<tr><td style="white-space:nowrap">${yy}年${+mm}月${+dd}日</td><td>${timeCell}</td><td><span class="badge" style="background:${tc};color:${tcFg};border:1px solid ${tcFg}44">${r.type}</span>${ruleTag}</td><td>${r.duration}h</td><td>${sb}</td><td style="text-align:center">${r.students.length}</td><td class="fee-val">¥${r.fee}</td><td style="color:#888;font-size:12px">${r.note||"—"}</td><td style="text-align:center;white-space:nowrap"><button class="btn-edit-sm" onclick="openEdit('${r.id}')">编辑</button><button class="btn-danger-sm" onclick="delR('${r.id}')" style="margin-left:4px">删除</button></td></tr>`;
+    const lockedTag = isLocked(r) ? '<span class="rule-tag" style="background:#eee;color:#999;border-color:#ccc">🔒已结课</span>' : "";
+    const actionCell = isLocked(r)
+      ? '<span style="color:#aaa;font-size:12px">—</span>'
+      : `<button class="btn-edit-sm" onclick="openEdit('${r.id}')">编辑</button><button class="btn-danger-sm" onclick="delR('${r.id}')" style="margin-left:4px">删除</button>`;
+    return `<tr><td style="white-space:nowrap">${yy}年${+mm}月${+dd}日</td><td>${timeCell}</td><td><span class="badge" style="background:${tc};color:${tcFg};border:1px solid ${tcFg}44">${r.type}</span>${ruleTag}${lockedTag}</td><td>${r.duration}h</td><td>${sb}</td><td style="text-align:center">${r.students.length}</td><td class="fee-val">¥${r.fee}</td><td style="color:#888;font-size:12px">${r.note||"—"}</td><td style="text-align:center;white-space:nowrap">${actionCell}</td></tr>`;
   }).join("");
   document.getElementById("s-cnt").textContent=f.length;
   document.getElementById("s-hrs").textContent=th;
@@ -2182,6 +2210,8 @@ function delTx(id){
 }
 
 async function delR(id){
+  const rec0 = RECS.find(r=>String(r.id)===String(id));
+  if(rec0 && isLocked(rec0)){ showToast("该课程已结课锁定，不可删除"); return; }
   if(!confirm("确认删除？")) return;
   const rec = RECS.find(r=>String(r.id)===String(id));
   if(rec && rec.ruleId){
@@ -2509,7 +2539,7 @@ function renderRuleList(){
 function finishRule(rid){
   const rule = RULES.find(r=>String(r.id)===String(rid));
   if(!rule) return;
-  if(!confirm("确定将该规则结课？\n\n结课后：已有课程记录保留不变，但规则将不再生成新课程，并从活跃列表中隐藏。")) return;
+  if(!confirm("确定将该规则结课？\n\n结课后：\n• 已有课程记录保留不变，但全部锁定（不可编辑/拖拽/删除）\n• 规则将不再生成新课程，并从活跃列表中隐藏")) return;
   rule.finished = true;
   saveRules();
   // 清除本规则当天之后未手动编辑过的课程记录（可选：仅标记，不做删除）
