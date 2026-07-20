@@ -1586,7 +1586,7 @@ function renderCal(){
   const isMobile = window.innerWidth <= 600;
   head.innerHTML = `<div class="cal-head-gutter"></div>` + days.map((d,i)=>{
     const cnt=dc[dkey(d)]||0;
-    return `<div class="cal-head-day"><div class="day-name">${isMobile?DAY_NAMES_SHORT[i]+' '+d.getMonth()+'/'+d.getDate():DAY_NAMES[i]+' ('+d.getMonth()+'/'+d.getDate()+')'}</div><div class="day-num ${isToday(d)?"is-today":""}">${d.getDate()}</div>${!isMobile&&cnt?`<div class="day-cnt has">${cnt+"节课"</div>`:''}</div>`;
+    return `<div class="cal-head-day"><div class="day-name">${isMobile?DAY_NAMES_SHORT[i]+' '+d.getMonth()+'/'+d.getDate():DAY_NAMES[i]+' ('+d.getMonth()+'/'+d.getDate()+')'}</div><div class="day-num ${isToday(d)?"is-today":""}">${d.getDate()}</div>${!isMobile&&cnt?`<div class="day-cnt has">${cnt+"节课"}</div>`:''}</div>`;
   }).join("");
 
   const gut = document.getElementById("time-gutter");
