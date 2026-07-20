@@ -90,7 +90,7 @@ body{font-family:"PingFang SC","Microsoft YaHei",sans-serif;background:#f5f4f0;c
 .cal-time-gutter{flex-shrink:0;width:52px;border-right:1px solid #e8e7e3}
 .time-cell{height:60px;display:flex;align-items:flex-start;justify-content:flex-end;padding:5px 6px 0;font-size:10px;color:#b0afa9;border-bottom:1px solid #f0efe9}
 .time-cell:last-child{border-bottom:none}
-.cal-days{flex:1;display:grid;grid-template-columns:repeat(7,1fr);position:relative}
+.cal-days{flex:1;display:grid;grid-template-columns:repeat(7,1fr);position:relative;min-width:0}
 .day-col{border-right:1px solid #f0efe9;position:relative}
 .day-col:last-child{border-right:none}
 .day-col.is-today{background:#faf9ff}
@@ -341,22 +341,23 @@ body{font-family:"PingFang SC","Microsoft YaHei",sans-serif;background:#f5f4f0;c
   .cal-body { overflow-y: hidden !important; flex: 1; }
 
   /* 日历头部 */
-  .cal-head { grid-template-columns: 36px repeat(7, 1fr); flex-shrink: 0; }
-  .cal-head-day { padding: 4px 2px; }
-  .day-name { font-size: 9px; }
-  .day-num { font-size: 14px; }
-  .day-num.is-today { width: 22px; height: 22px; font-size: 12px; }
-  .day-cnt { font-size: 9px; }
+  .cal-head { grid-template-columns: 30px repeat(7, 1fr); flex-shrink: 0; }
+  .cal-head-day { padding: 3px 2px; min-width: 0; overflow: hidden; }
+  .day-name { font-size: 8px; white-space: nowrap; }
+  .day-num { font-size: 13px; }
+  .day-num.is-today { width: 20px; height: 20px; font-size: 11px; }
+  .day-cnt { font-size: 7px; display: none; } /* 移动端隐藏课节数，释放空间 */
 
   /* 时间轴 */
-  .cal-time-gutter { width: 36px; }
+  .cal-time-gutter { width: 30px; }
+  .day-col { min-width: 0; overflow: hidden; }
   /* time-cell 和 hour-slot 高度由 JS 动态注入，CSS 不写死 */
-  .time-cell { font-size: 8px; padding: 2px 3px 0; }
+  .time-cell { font-size: 7px; padding: 1px 2px 0; }
 
   /* 课程块文字 */
-  .cb { padding: 2px 3px; border-radius: 4px; left: 1px; right: 1px; }
-  .cb-time { font-size: 8px; }
-  .cb-stu  { font-size: 9px;  margin-top: 1px; }
+  .cb { padding: 2px 3px; border-radius: 4px; left: 1px; right: 1px; min-width: 0; }
+  .cb-time { font-size: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cb-stu  { font-size: 9px; margin-top: 1px; line-height: 1.25; word-break: break-all; }
   .cb-fee  { font-size: 8px; }
 
   /* —— 列表视图：自己有滚动区域，禁止横向溢出 —— */
@@ -419,10 +420,13 @@ body{font-family:"PingFang SC","Microsoft YaHei",sans-serif;background:#f5f4f0;c
 
 /* 超小屏额外补丁（≤380px，如 SE 等老机型）*/
 @media (max-width: 380px) {
-  .day-name { font-size: 8px; }
-  .day-num { font-size: 13px; }
-  .time-cell { font-size: 8px; }
-  .cb-time, .cb-stu, .cb-fee { font-size: 9px; }
+  .day-name { font-size: 7px; }
+  .day-num { font-size: 12px; }
+  .cal-head { grid-template-columns: 26px repeat(7, 1fr); }
+  .cal-time-gutter { width: 26px; }
+  .time-cell { font-size: 6px; padding: 1px 1px 0; }
+  .cb-time, .cb-stu, .cb-fee { font-size: 8px; }
+  .cb-stu { line-height: 1.2; }
 }
 
 /* ── 加班/调休面板 ── */
@@ -1361,6 +1365,7 @@ function calcCellH() {
 
 let CELL_H = 60; // 初始值，待 DOM ready 后更新
 const DAY_NAMES = ["周一","周二","周三","周四","周五","周六","周日"];
+const DAY_NAMES_SHORT = ["一","二","三","四","五","六","日"];
 // 方老师主账号：简化为4个课程类型（初中/高中 × 一对一/一对多）
 const ALL_TYPES = ["初中一对一", "初中一对多", "高中一对一", "高中一对多"];
 // 颜色：初中用青绿色系(h≈180)，高中用橙红色系(h≈10)，一对多饱和度略低
@@ -1578,9 +1583,10 @@ function renderCal(){
 
   const dc={}; recs.forEach(r=>{ dc[r.date]=(dc[r.date]||0)+1; });
   const head = document.getElementById("cal-head");
+  const isMobile = window.innerWidth <= 600;
   head.innerHTML = `<div class="cal-head-gutter"></div>` + days.map((d,i)=>{
     const cnt=dc[dkey(d)]||0;
-    return `<div class="cal-head-day"><div class="day-name">${DAY_NAMES[i]} (${d.getMonth()+1}/${d.getDate()})</div><div class="day-num ${isToday(d)?"is-today":""}">${d.getDate()}</div><div class="day-cnt ${cnt?"has":""}">${cnt?cnt+"节课":""}</div></div>`;
+    return `<div class="cal-head-day"><div class="day-name">${isMobile?DAY_NAMES_SHORT[i]+' '+d.getMonth()+'/'+d.getDate():DAY_NAMES[i]+' ('+d.getMonth()+'/'+d.getDate()+')'}</div><div class="day-num ${isToday(d)?"is-today":""}">${d.getDate()}</div>${!isMobile&&cnt?`<div class="day-cnt has">${cnt+"节课"</div>`:''}</div>`;
   }).join("");
 
   const gut = document.getElementById("time-gutter");
