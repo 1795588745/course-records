@@ -286,24 +286,31 @@ body{font-family:"PingFang SC","Microsoft YaHei",sans-serif;background:#f5f4f0;c
   }
   .btn-logout { font-size: 11px; padding: 6px 8px; }
 
-  /* —— 工具栏：紧凑一行 —— */
+  /* —— 工具栏：紧凑布局，日期一行、按钮一行 —— */
   .toolbar {
-    padding: 5px 10px;
-    gap: 6px;
-    flex-wrap: nowrap;
+    padding: 5px 8px;
+    gap: 5px;
+    flex-wrap: wrap;
   }
-  .week-nav { flex: 1; min-width: 0; }
+  .week-nav { flex: 1 1 100%; min-width: 0; justify-content: center; gap: 4px; }
   .week-label {
     font-size: 11px;
     min-width: 0;
-    flex: 1;
+    flex: 0 1 auto;
     text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    padding: 2px 4px;
   }
-  .toolbar-right { margin-left: 0; gap: 5px; flex-shrink: 0; }
-  .btn-primary { font-size: 11px; padding: 5px 8px; }
-  .btn-end-today, .btn-end-history { font-size: 11px; padding: 5px 8px; }
-  .view-tabs { gap: 2px; }
-  .view-tab { font-size: 11px; padding: 4px 8px; }
+  .nav-btn { width: 22px; height: 22px; font-size: 13px; }
+  .today-btn { font-size: 11px; padding: 3px 6px; }
+  .toolbar-right { margin-left: 0; gap: 4px; flex: 1 1 100%; justify-content: center; flex-wrap: wrap; }
+  .toolbar-right .btn { font-size: 10px; padding: 4px 6px; }
+  .btn-primary { font-size: 10px; padding: 4px 6px; }
+  .btn-end-today, .btn-end-history { font-size: 10px; padding: 4px 6px; }
+  .view-tabs { gap: 1px; }
+  .view-tab { font-size: 10px; padding: 3px 6px; }
 
   /* —— body 禁止页面级滚动（仅移动端），周视图内部管理自己 —— */
   body {
@@ -389,20 +396,23 @@ body{font-family:"PingFang SC","Microsoft YaHei",sans-serif;background:#f5f4f0;c
   .list-tbl .btn-edit-sm, .list-tbl .btn-danger-sm { font-size: 9px; padding: 2px 4px; margin: 0; }
   .list-tbl td .badge { font-size: 9px; padding: 1px 4px; margin: 1px 1px 0 0; display: inline-block; }
   .list-tbl td .fee-val { font-size: 10px; }
-  .stats-bar { gap: 6px; }
-  .stat-c { padding: 8px 10px; }
-  .stat-c .num { font-size: 16px; }
-  .stat-c .lbl { font-size: 10px; }
+  .stats-bar { gap: 5px; margin-top: 8px; }
+  .stat-c { padding: 6px 8px; }
+  .stat-c .num { font-size: 15px; }
+  .stat-c .lbl { font-size: 9px; }
+  .salary-panel .sp-title { font-size: 12px; margin-bottom: 6px; }
+  .salary-panel .sp-title::before { height: 12px; }
 
-  /* —— 月工资计算：手机端改 2 列 —— */
-  .salary-panel { padding: 10px 10px; }
-  .sp-grid label { gap: 2px; }
-  .sp-grid label span { font-size: 10px; }
-  .sp-grid label input { font-size: 11px; padding: 5px 6px; }
-  .sp-result { grid-template-columns: repeat(2, 1fr); gap: 6px; }
-  .sp-result-item { padding: 8px 8px; }
+  /* —— 月工资计算：手机端更紧凑 —— */
+  .salary-panel { padding: 8px; }
+  .sp-config { grid-template-columns: repeat(2, 1fr); gap: 5px 8px; }
+  .sp-config label { gap: 2px; align-items: center; }
+  .sp-config label span { min-width: auto; font-size: 10px; white-space: nowrap; color: #888; }
+  .sp-config label input { width: 100%; min-width: 0; font-size: 11px; padding: 4px 6px; }
+  .sp-result { grid-template-columns: repeat(2, 1fr); gap: 5px; }
+  .sp-result-item { padding: 6px 8px; }
   .sp-result-item .sp-label { font-size: 10px; }
-  .sp-result-item .sp-val { font-size: 15px; }
+  .sp-result-item .sp-val { font-size: 14px; }
   .sp-result-item .sp-detail { font-size: 9px; word-break: break-all; }
   .sp-hist-table th, .sp-hist-table td { padding: 5px 4px; font-size: 10px; }
   .sp-hist-table .btn-edit-sm, .sp-hist-table .btn-danger-sm { font-size: 9px; padding: 2px 4px; }
@@ -1579,7 +1589,10 @@ function renderCal(){
   const recs = getVisibleRecs();
   const days = Array.from({length:7},(_,i)=>{ const d=new Date(weekStart); d.setDate(d.getDate()+i); return d; });
   const s=days[0],e=days[6];
-  document.getElementById("week-label").textContent = `${s.getFullYear()}年 ${s.getMonth()+1}月${s.getDate()}日 — ${e.getMonth()+1}月${e.getDate()}日`;
+  const isMobileLabel = window.innerWidth <= 600;
+  document.getElementById("week-label").textContent = isMobileLabel
+    ? `${s.getMonth()+1}/${s.getDate()}-${e.getMonth()+1}/${e.getDate()}`
+    : `${s.getFullYear()}年 ${s.getMonth()+1}月${s.getDate()}日 — ${e.getMonth()+1}月${e.getDate()}日`;
 
   const dc={}; recs.forEach(r=>{ dc[r.date]=(dc[r.date]||0)+1; });
   const head = document.getElementById("cal-head");
