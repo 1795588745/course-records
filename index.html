@@ -63,6 +63,8 @@ body{font-family:"PingFang SC","Microsoft YaHei",sans-serif;background:#f5f4f0;c
 .btn-edit-sm:hover{background:#EEEDFE}
 .btn-amber{background:#BA7517;color:#fff}
 .btn-amber:hover{opacity:.85}
+.btn-end-today{background:#fff;color:#0F6E56;border:1px solid #0F6E56}
+.btn-end-today:hover{background:#E8F5F0}
 
 /* ── 视图切换 ── */
 .view-tabs{display:flex;gap:2px;background:#f0efe9;border-radius:7px;padding:2px}
@@ -297,6 +299,7 @@ body{font-family:"PingFang SC","Microsoft YaHei",sans-serif;background:#f5f4f0;c
   }
   .toolbar-right { margin-left: 0; gap: 5px; flex-shrink: 0; }
   .btn-primary { font-size: 11px; padding: 5px 8px; }
+  .btn-end-today { font-size: 11px; padding: 5px 8px; }
   .view-tabs { gap: 2px; }
   .view-tab { font-size: 11px; padding: 4px 8px; }
 
@@ -543,6 +546,7 @@ body{font-family:"PingFang SC","Microsoft YaHei",sans-serif;background:#f5f4f0;c
   <div class="toolbar-right">
     <button class="btn btn-outline" id="btn-tier-mgr" style="display:none" onclick="openTierMgr()">课时费分档</button>
     <button class="btn btn-outline" id="btn-type-mgr" style="display:none" onclick="openTypeMgr()">课程类型</button>
+    <button class="btn btn-end-today" onclick="endToday()" title="将今天所有课程标记为已结课，锁定不可编辑">✓ 当天结课</button>
     <button class="btn btn-primary" onclick="openAdd()">＋ 添加课程</button>
     <div class="view-tabs">
       <button class="view-tab active" id="tab-week" onclick="switchView('week')">周视图</button>
@@ -1462,9 +1466,13 @@ function onDatePickerChange(val){ if(!val) return; weekStart=getMonday(new Date(
 // ══════════════════════════════
 // ── 锁定检测：已结课规则关联的课程不允许编辑/拖拽/删除 ──
 function isLocked(rec){
-  if(!rec || !rec.ruleId) return false;
-  const rule = RULES.find(r=>String(r.id)===String(rec.ruleId));
-  return !!(rule && rule.finished);
+  if(!rec) return false;
+  if(rec.courseLocked) return true;   // 单课程锁定（当天结课）
+  if(rec.ruleId){
+    const rule = RULES.find(r=>String(r.id)===String(rec.ruleId));
+    return !!(rule && rule.finished);  // 规则级锁定（规则结课）
+  }
+  return false;
 }
 
 //  规则生成课程（客户端）
@@ -1875,7 +1883,8 @@ async function saveRecord(){
       const i=RULES.findIndex(r=>String(r.id)===String(editingRuleId));
       if(i>-1){
         RULES[i]=newRule;
-        RECS=RECS.filter(r=>String(r.ruleId)!==String(editingRuleId));
+        // 保留已锁定课程（courseLocked），只删除未锁定的，让 generateFromRules 按新规则重新生成
+        RECS=RECS.filter(r=>String(r.ruleId)!==String(editingRuleId) || r.courseLocked);
       }
     } else { RULES.push(newRule); }
     saveRules(); saveRecs();
@@ -2535,6 +2544,37 @@ function renderRuleList(){
   box.innerHTML = html;
 }
 
+//  当天全部结课 — 锁定今天所有课程，自动检测规则是否全部结课
+function endToday(){
+  const todayStr = dkey(new Date());
+  const todayRecs = RECS.filter(r => r.date === todayStr);
+  if(!todayRecs.length){ showToast("今天没有课程"); return; }
+  const unlocked = todayRecs.filter(r => !isLocked(r));
+  if(!unlocked.length){ showToast("今天的课程已全部结课"); return; }
+  if(!confirm(`确定将今天 (${todayStr}) 的 ${unlocked.length} 节课全部结课？\n\n结课后：\n• 课程锁定，不可编辑/拖拽/删除\n• 若某规则的所有课程均已结课，该规则将自动标记为已结课`)) return;
+  // 锁定今天所有未锁定的课程
+  unlocked.forEach(r => { r.courseLocked = true; });
+  // 检查每条规则：若所有课程均已锁定，自动结课
+  const ruleIds = new Set();
+  unlocked.forEach(r => { if(r.ruleId) ruleIds.add(r.ruleId); });
+  let finishedCount = 0;
+  ruleIds.forEach(rid => {
+    const rule = RULES.find(r => String(r.id) === String(rid));
+    if(!rule || rule.finished) return;
+    const ruleRecs = RECS.filter(r => String(r.ruleId) === String(rid));
+    if(ruleRecs.length && ruleRecs.every(r => isLocked(r))){
+      rule.finished = true;
+      finishedCount++;
+    }
+  });
+  saveRecs(); saveRules(); scheduleCloudSync();
+  refresh();
+  if(document.getElementById("rule-modal").classList.contains("open")) renderRuleList();
+  let msg = `已结课 ${unlocked.length} 节课程`;
+  if(finishedCount > 0) msg += `，${finishedCount} 条规则自动结课`;
+  showToast(msg);
+}
+
 //  结课 / 重新激活
 function finishRule(rid){
   const rule = RULES.find(r=>String(r.id)===String(rid));
@@ -2550,6 +2590,11 @@ function finishRule(rid){
 function reactivateRule(rid){
   const rule = RULES.find(r=>String(r.id)===String(rid));
   if(!rule) return;
+  const lockedCount = RECS.filter(r=>String(r.ruleId)===String(rid) && r.courseLocked).length;
+  const msg = lockedCount > 0
+    ? `确定重新激活该规则？\n\n注意：${lockedCount} 节已结课的课程将保持锁定状态（不可编辑），\n后续课程将按规则重新生成。`
+    : "确定重新激活该规则？";
+  if(!confirm(msg)) return;
   rule.finished = false;
   saveRules();
   renderRuleList();
