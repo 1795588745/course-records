@@ -65,6 +65,8 @@ body{font-family:"PingFang SC","Microsoft YaHei",sans-serif;background:#f5f4f0;c
 .btn-amber:hover{opacity:.85}
 .btn-end-today{background:#fff;color:#0F6E56;border:1px solid #0F6E56}
 .btn-end-today:hover{background:#E8F5F0}
+.btn-end-history{background:#fff;color:#8B6F4E;border:1px solid #8B6F4E}
+.btn-end-history:hover{background:#F5F0E8}
 
 /* ── 视图切换 ── */
 .view-tabs{display:flex;gap:2px;background:#f0efe9;border-radius:7px;padding:2px}
@@ -299,7 +301,7 @@ body{font-family:"PingFang SC","Microsoft YaHei",sans-serif;background:#f5f4f0;c
   }
   .toolbar-right { margin-left: 0; gap: 5px; flex-shrink: 0; }
   .btn-primary { font-size: 11px; padding: 5px 8px; }
-  .btn-end-today { font-size: 11px; padding: 5px 8px; }
+  .btn-end-today, .btn-end-history { font-size: 11px; padding: 5px 8px; }
   .view-tabs { gap: 2px; }
   .view-tab { font-size: 11px; padding: 4px 8px; }
 
@@ -547,6 +549,7 @@ body{font-family:"PingFang SC","Microsoft YaHei",sans-serif;background:#f5f4f0;c
     <button class="btn btn-outline" id="btn-tier-mgr" style="display:none" onclick="openTierMgr()">课时费分档</button>
     <button class="btn btn-outline" id="btn-type-mgr" style="display:none" onclick="openTypeMgr()">课程类型</button>
     <button class="btn btn-end-today" onclick="endToday()" title="将今天所有课程标记为已结课，锁定不可编辑">✓ 当天结课</button>
+    <button class="btn btn-end-history" onclick="endBeforeToday()" title="将今天之前所有未锁定的课程批量锁定">🔒 历史结课</button>
     <button class="btn btn-primary" onclick="openAdd()">＋ 添加课程</button>
     <div class="view-tabs">
       <button class="view-tab active" id="tab-week" onclick="switchView('week')">周视图</button>
@@ -2571,6 +2574,37 @@ function endToday(){
   refresh();
   if(document.getElementById("rule-modal").classList.contains("open")) renderRuleList();
   let msg = `已结课 ${unlocked.length} 节课程`;
+  if(finishedCount > 0) msg += `，${finishedCount} 条规则自动结课`;
+  showToast(msg);
+}
+
+//  锁定今天之前所有课程
+function endBeforeToday(){
+  const todayStr = dkey(new Date());
+  const beforeRecs = RECS.filter(r => r.date < todayStr);
+  if(!beforeRecs.length){ showToast("今天之前没有课程"); return; }
+  const unlocked = beforeRecs.filter(r => !isLocked(r));
+  if(!unlocked.length){ showToast("今天之前的课程已全部锁定"); return; }
+  if(!confirm(`确定将今天之前 (截止 ${todayStr}) 共 ${unlocked.length} 节未锁定课程全部结课？\n\n结课后：\n• 课程锁定，不可编辑/拖拽/删除\n• 若某规则的所有课程均已结课，该规则将自动标记为已结课`)) return;
+  // 锁定所有未锁定课程
+  unlocked.forEach(r => { r.courseLocked = true; });
+  // 检查每条规则：若所有课程均已锁定，自动结课
+  const ruleIds = new Set();
+  unlocked.forEach(r => { if(r.ruleId) ruleIds.add(r.ruleId); });
+  let finishedCount = 0;
+  ruleIds.forEach(rid => {
+    const rule = RULES.find(r => String(r.id) === String(rid));
+    if(!rule || rule.finished) return;
+    const ruleRecs = RECS.filter(r => String(r.ruleId) === String(rid));
+    if(ruleRecs.length && ruleRecs.every(r => isLocked(r))){
+      rule.finished = true;
+      finishedCount++;
+    }
+  });
+  saveRecs(); saveRules(); scheduleCloudSync();
+  refresh();
+  if(document.getElementById("rule-modal").classList.contains("open")) renderRuleList();
+  let msg = `已锁定 ${unlocked.length} 节历史课程`;
   if(finishedCount > 0) msg += `，${finishedCount} 条规则自动结课`;
   showToast(msg);
 }
