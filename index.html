@@ -63,6 +63,10 @@ body{font-family:"PingFang SC","Microsoft YaHei",sans-serif;background:#f5f4f0;c
 .btn-edit-sm:hover{background:#EEEDFE}
 .btn-amber{background:#BA7517;color:#fff}
 .btn-amber:hover{opacity:.85}
+.btn-end-today{background:#fff;color:#0F6E56;border:1px solid #0F6E56}
+.btn-end-today:hover{background:#E8F5F0}
+.btn-end-history{background:#fff;color:#8B6F4E;border:1px solid #8B6F4E}
+.btn-end-history:hover{background:#F5F0E8}
 
 /* ── 视图切换 ── */
 .view-tabs{display:flex;gap:2px;background:#f0efe9;border-radius:7px;padding:2px}
@@ -86,7 +90,7 @@ body{font-family:"PingFang SC","Microsoft YaHei",sans-serif;background:#f5f4f0;c
 .cal-time-gutter{flex-shrink:0;width:52px;border-right:1px solid #e8e7e3}
 .time-cell{height:60px;display:flex;align-items:flex-start;justify-content:flex-end;padding:5px 6px 0;font-size:10px;color:#b0afa9;border-bottom:1px solid #f0efe9}
 .time-cell:last-child{border-bottom:none}
-.cal-days{flex:1;display:grid;grid-template-columns:repeat(7,1fr);position:relative}
+.cal-days{flex:1;display:grid;grid-template-columns:repeat(7,1fr);position:relative;min-width:0}
 .day-col{border-right:1px solid #f0efe9;position:relative}
 .day-col:last-child{border-right:none}
 .day-col.is-today{background:#faf9ff}
@@ -103,6 +107,9 @@ body{font-family:"PingFang SC","Microsoft YaHei",sans-serif;background:#f5f4f0;c
 .cb.cm{background:#3BA99C;color:#fff}
 .cb.ch{background:#E67E22;color:#fff}
 .cb.from-rule{border-left:3px solid #f0ad4e}
+.cb.cb-locked{cursor:not-allowed;opacity:.65;border:2px dashed #fff;border-left:3px solid #999}
+.cb.cb-locked:hover{filter:none;opacity:.65}
+.cb-lock{position:absolute;top:2px;right:3px;font-size:10px;opacity:.8}
 .cb-time{font-size:11px;opacity:.85;white-space:nowrap}
 .cb-stu{font-size:12px;font-weight:600;white-space:normal;word-break:break-all;line-height:1.4;margin-top:2px}
 .cb-fee{font-size:11px;opacity:.75;margin-top:2px}
@@ -214,6 +221,11 @@ body{font-family:"PingFang SC","Microsoft YaHei",sans-serif;background:#f5f4f0;c
 
 .rule-row{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;margin-bottom:4px;background:#f9f8f5;border-left:3px solid #f0ad4e}
 .rule-row:hover{background:#f0eff9}
+.rule-row.rule-finished{background:#f5f4f0;border-left-color:#c0bfbc;opacity:.7}
+.rule-row.rule-finished:hover{background:#edebe7}
+.finished-badge{display:inline-block;font-size:10px;color:#fff;background:#999;padding:1px 6px;border-radius:3px;margin-left:6px;vertical-align:middle}
+.finished-sep{cursor:pointer;color:#888;font-size:12px;padding:8px 0;margin-top:8px;border-top:1px dashed #e0ddd8;user-select:none}
+.finished-sep:hover{color:#534AB7}
 .rule-info{flex:1;font-size:13px;line-height:1.5}
 .rule-info .ri-day{font-weight:600;color:#BA7517}
 .rule-info .ri-time{color:#888;font-size:12px}
@@ -274,23 +286,31 @@ body{font-family:"PingFang SC","Microsoft YaHei",sans-serif;background:#f5f4f0;c
   }
   .btn-logout { font-size: 11px; padding: 6px 8px; }
 
-  /* —— 工具栏：紧凑一行 —— */
+  /* —— 工具栏：紧凑布局，日期一行、按钮一行 —— */
   .toolbar {
-    padding: 5px 10px;
-    gap: 6px;
-    flex-wrap: nowrap;
+    padding: 5px 8px;
+    gap: 5px;
+    flex-wrap: wrap;
   }
-  .week-nav { flex: 1; min-width: 0; }
+  .week-nav { flex: 1 1 100%; min-width: 0; justify-content: center; gap: 4px; }
   .week-label {
     font-size: 11px;
     min-width: 0;
-    flex: 1;
+    flex: 0 1 auto;
     text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    padding: 2px 4px;
   }
-  .toolbar-right { margin-left: 0; gap: 5px; flex-shrink: 0; }
-  .btn-primary { font-size: 11px; padding: 5px 8px; }
-  .view-tabs { gap: 2px; }
-  .view-tab { font-size: 11px; padding: 4px 8px; }
+  .nav-btn { width: 22px; height: 22px; font-size: 13px; }
+  .today-btn { font-size: 11px; padding: 3px 6px; }
+  .toolbar-right { margin-left: 0; gap: 4px; flex: 1 1 100%; justify-content: center; flex-wrap: wrap; }
+  .toolbar-right .btn { font-size: 10px; padding: 4px 6px; }
+  .btn-primary { font-size: 10px; padding: 4px 6px; }
+  .btn-end-today, .btn-end-history { font-size: 10px; padding: 4px 6px; }
+  .view-tabs { gap: 1px; }
+  .view-tab { font-size: 10px; padding: 3px 6px; }
 
   /* —— body 禁止页面级滚动（仅移动端），周视图内部管理自己 —— */
   body {
@@ -328,22 +348,23 @@ body{font-family:"PingFang SC","Microsoft YaHei",sans-serif;background:#f5f4f0;c
   .cal-body { overflow-y: hidden !important; flex: 1; }
 
   /* 日历头部 */
-  .cal-head { grid-template-columns: 36px repeat(7, 1fr); flex-shrink: 0; }
-  .cal-head-day { padding: 4px 2px; }
-  .day-name { font-size: 9px; }
-  .day-num { font-size: 14px; }
-  .day-num.is-today { width: 22px; height: 22px; font-size: 12px; }
-  .day-cnt { font-size: 9px; }
+  .cal-head { grid-template-columns: 30px repeat(7, 1fr); flex-shrink: 0; }
+  .cal-head-day { padding: 3px 2px; min-width: 0; overflow: hidden; }
+  .day-name { font-size: 8px; white-space: nowrap; }
+  .day-num { font-size: 13px; }
+  .day-num.is-today { width: 20px; height: 20px; font-size: 11px; }
+  .day-cnt { font-size: 7px; display: none; } /* 移动端隐藏课节数，释放空间 */
 
   /* 时间轴 */
-  .cal-time-gutter { width: 36px; }
+  .cal-time-gutter { width: 30px; }
+  .day-col { min-width: 0; overflow: hidden; }
   /* time-cell 和 hour-slot 高度由 JS 动态注入，CSS 不写死 */
-  .time-cell { font-size: 8px; padding: 2px 3px 0; }
+  .time-cell { font-size: 7px; padding: 1px 2px 0; }
 
   /* 课程块文字 */
-  .cb { padding: 2px 3px; border-radius: 4px; left: 1px; right: 1px; }
-  .cb-time { font-size: 8px; }
-  .cb-stu  { font-size: 9px;  margin-top: 1px; }
+  .cb { padding: 2px 3px; border-radius: 4px; left: 1px; right: 1px; min-width: 0; }
+  .cb-time { font-size: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cb-stu  { font-size: 9px; margin-top: 1px; line-height: 1.25; word-break: break-all; }
   .cb-fee  { font-size: 8px; }
 
   /* —— 列表视图：自己有滚动区域，禁止横向溢出 —— */
@@ -375,20 +396,23 @@ body{font-family:"PingFang SC","Microsoft YaHei",sans-serif;background:#f5f4f0;c
   .list-tbl .btn-edit-sm, .list-tbl .btn-danger-sm { font-size: 9px; padding: 2px 4px; margin: 0; }
   .list-tbl td .badge { font-size: 9px; padding: 1px 4px; margin: 1px 1px 0 0; display: inline-block; }
   .list-tbl td .fee-val { font-size: 10px; }
-  .stats-bar { gap: 6px; }
-  .stat-c { padding: 8px 10px; }
-  .stat-c .num { font-size: 16px; }
-  .stat-c .lbl { font-size: 10px; }
+  .stats-bar { gap: 5px; margin-top: 8px; }
+  .stat-c { padding: 6px 8px; }
+  .stat-c .num { font-size: 15px; }
+  .stat-c .lbl { font-size: 9px; }
+  .salary-panel .sp-title { font-size: 12px; margin-bottom: 6px; }
+  .salary-panel .sp-title::before { height: 12px; }
 
-  /* —— 月工资计算：手机端改 2 列 —— */
-  .salary-panel { padding: 10px 10px; }
-  .sp-grid label { gap: 2px; }
-  .sp-grid label span { font-size: 10px; }
-  .sp-grid label input { font-size: 11px; padding: 5px 6px; }
-  .sp-result { grid-template-columns: repeat(2, 1fr); gap: 6px; }
-  .sp-result-item { padding: 8px 8px; }
+  /* —— 月工资计算：手机端更紧凑 —— */
+  .salary-panel { padding: 8px; }
+  .sp-config { grid-template-columns: repeat(2, 1fr); gap: 5px 8px; }
+  .sp-config label { gap: 2px; align-items: center; }
+  .sp-config label span { min-width: auto; font-size: 10px; white-space: nowrap; color: #888; }
+  .sp-config label input { width: 100%; min-width: 0; font-size: 11px; padding: 4px 6px; }
+  .sp-result { grid-template-columns: repeat(2, 1fr); gap: 5px; }
+  .sp-result-item { padding: 6px 8px; }
   .sp-result-item .sp-label { font-size: 10px; }
-  .sp-result-item .sp-val { font-size: 15px; }
+  .sp-result-item .sp-val { font-size: 14px; }
   .sp-result-item .sp-detail { font-size: 9px; word-break: break-all; }
   .sp-hist-table th, .sp-hist-table td { padding: 5px 4px; font-size: 10px; }
   .sp-hist-table .btn-edit-sm, .sp-hist-table .btn-danger-sm { font-size: 9px; padding: 2px 4px; }
@@ -406,10 +430,13 @@ body{font-family:"PingFang SC","Microsoft YaHei",sans-serif;background:#f5f4f0;c
 
 /* 超小屏额外补丁（≤380px，如 SE 等老机型）*/
 @media (max-width: 380px) {
-  .day-name { font-size: 8px; }
-  .day-num { font-size: 13px; }
-  .time-cell { font-size: 8px; }
-  .cb-time, .cb-stu, .cb-fee { font-size: 9px; }
+  .day-name { font-size: 7px; }
+  .day-num { font-size: 12px; }
+  .cal-head { grid-template-columns: 26px repeat(7, 1fr); }
+  .cal-time-gutter { width: 26px; }
+  .time-cell { font-size: 6px; padding: 1px 1px 0; }
+  .cb-time, .cb-stu, .cb-fee { font-size: 8px; }
+  .cb-stu { line-height: 1.2; }
 }
 
 /* ── 加班/调休面板 ── */
@@ -535,6 +562,8 @@ body{font-family:"PingFang SC","Microsoft YaHei",sans-serif;background:#f5f4f0;c
   <div class="toolbar-right">
     <button class="btn btn-outline" id="btn-tier-mgr" style="display:none" onclick="openTierMgr()">课时费分档</button>
     <button class="btn btn-outline" id="btn-type-mgr" style="display:none" onclick="openTypeMgr()">课程类型</button>
+    <button class="btn btn-end-today" onclick="endToday()" title="将今天所有课程标记为已结课，锁定不可编辑">✓ 当天结课</button>
+    <button class="btn btn-end-history" onclick="endBeforeToday()" title="将今天之前所有未锁定的课程批量锁定">🔒 历史结课</button>
     <button class="btn btn-primary" onclick="openAdd()">＋ 添加课程</button>
     <div class="view-tabs">
       <button class="view-tab active" id="tab-week" onclick="switchView('week')">周视图</button>
@@ -726,9 +755,10 @@ body{font-family:"PingFang SC","Microsoft YaHei",sans-serif;background:#f5f4f0;c
       <div class="frow full"><div class="fg"><label>月份（格式：YYYY-MM）</label><input type="month" id="sh-month" placeholder="如 2026-01"></div></div>
       <div class="frow full"><div class="fg"><label>税前工资（元）</label><input type="number" id="sh-gross" placeholder="如 8500" step="0.01"></div></div>
       <div class="frow full"><div class="fg"><label>课时费（元，可选）</label><input type="number" id="sh-fee" placeholder="留空表示未记录" step="0.01"></div></div>
+      <div class="frow full"><div class="fg"><label>个税（元，留空则自动计算）</label><input type="number" id="sh-tax" placeholder="留空则自动计算" step="0.01"></div></div>
       <div style="font-size:11px;color:#888;margin-top:-4px;line-height:1.6">
-        个税由系统按累计预扣法自动计算，无需手动填写。<br>
-        税后实发 = 税前工资 - 自动计算的个税。<br>
+        个税默认由系统按累计预扣法自动计算。如与实际工资条不符，可在此手动填写，系统将以此值为准。<br>
+        手动填写的个税会标注"(手动)"，且影响后续月份的累计计算。<br>
         课时费仅作参考展示，不影响累计个税的计算逻辑。
       </div>
     </div>
@@ -1345,6 +1375,7 @@ function calcCellH() {
 
 let CELL_H = 60; // 初始值，待 DOM ready 后更新
 const DAY_NAMES = ["周一","周二","周三","周四","周五","周六","周日"];
+const DAY_NAMES_SHORT = ["一","二","三","四","五","六","日"];
 // 方老师主账号：简化为4个课程类型（初中/高中 × 一对一/一对多）
 const ALL_TYPES = ["初中一对一", "初中一对多", "高中一对一", "高中一对多"];
 // 颜色：初中用青绿色系(h≈180)，高中用橙红色系(h≈10)，一对多饱和度略低
@@ -1451,6 +1482,17 @@ function openDatePicker(){ const dp=document.getElementById("date-picker"); dp.s
 function onDatePickerChange(val){ if(!val) return; weekStart=getMonday(new Date(val+"T00:00:00")); document.getElementById("date-picker").style.pointerEvents="none"; refresh(); }
 
 // ══════════════════════════════
+// ── 锁定检测：已结课规则关联的课程不允许编辑/拖拽/删除 ──
+function isLocked(rec){
+  if(!rec) return false;
+  if(rec.courseLocked) return true;   // 单课程锁定（当天结课）
+  if(rec.ruleId){
+    const rule = RULES.find(r=>String(r.id)===String(rec.ruleId));
+    return !!(rule && rule.finished);  // 规则级锁定（规则结课）
+  }
+  return false;
+}
+
 //  规则生成课程（客户端）
 // ══════════════════════════════
 // ── 时间冲突检测：任意两节课不允许时间重叠 ──
@@ -1475,6 +1517,7 @@ function generateFromRules(){
   const days = Array.from({length:7},(_,i)=>{ const d=new Date(weekStart); d.setDate(d.getDate()+i); return d; });
 
   RULES.forEach(rule=>{
+    if(rule.finished) return; // 已结课规则不再生成课程
     // 兼容旧数据：dayOfWeek(单值) → daysOfWeek(数组)
     const dows = rule.daysOfWeek && rule.daysOfWeek.length ? rule.daysOfWeek : (rule.dayOfWeek ? [rule.dayOfWeek] : []);
     days.forEach(d=>{
@@ -1546,13 +1589,17 @@ function renderCal(){
   const recs = getVisibleRecs();
   const days = Array.from({length:7},(_,i)=>{ const d=new Date(weekStart); d.setDate(d.getDate()+i); return d; });
   const s=days[0],e=days[6];
-  document.getElementById("week-label").textContent = `${s.getFullYear()}年 ${s.getMonth()+1}月${s.getDate()}日 — ${e.getMonth()+1}月${e.getDate()}日`;
+  const isMobileLabel = window.innerWidth <= 600;
+  document.getElementById("week-label").textContent = isMobileLabel
+    ? `${s.getMonth()+1}/${s.getDate()}-${e.getMonth()+1}/${e.getDate()}`
+    : `${s.getFullYear()}年 ${s.getMonth()+1}月${s.getDate()}日 — ${e.getMonth()+1}月${e.getDate()}日`;
 
   const dc={}; recs.forEach(r=>{ dc[r.date]=(dc[r.date]||0)+1; });
   const head = document.getElementById("cal-head");
+  const isMobile = window.innerWidth <= 600;
   head.innerHTML = `<div class="cal-head-gutter"></div>` + days.map((d,i)=>{
     const cnt=dc[dkey(d)]||0;
-    return `<div class="cal-head-day"><div class="day-name">${DAY_NAMES[i]} (${d.getMonth()+1}/${d.getDate()})</div><div class="day-num ${isToday(d)?"is-today":""}">${d.getDate()}</div><div class="day-cnt ${cnt?"has":""}">${cnt?cnt+"节课":""}</div></div>`;
+    return `<div class="cal-head-day"><div class="day-name">${isMobile?DAY_NAMES_SHORT[i]+' '+d.getMonth()+1+'/'+d.getDate():DAY_NAMES[i]+' ('+(d.getMonth()+1)+'/'+d.getDate()+')'}</div><div class="day-num ${isToday(d)?"is-today":""}">${d.getDate()}</div>${!isMobile&&cnt?`<div class="day-cnt has">${cnt+"节课"}</div>`:''}</div>`;
   }).join("");
 
   const gut = document.getElementById("time-gutter");
@@ -1576,13 +1623,19 @@ function renderCal(){
     const bgColor = typeColor(r.type);
     const stuText = r.students.join("、");
     const isFromRule = !!r.ruleId;
+    const locked = isLocked(r);
     const block = document.createElement("div");
-    block.className = `cb${isFromRule?" from-rule":""}`;
+    block.className = `cb${isFromRule?" from-rule":""}${locked?" cb-locked":""}`;
     block.style.cssText = `top:${topPx}px;height:${heightPx}px;background:${bgColor};color:#fff`;
-    block.innerHTML = `<div class="cb-time">${r.startTime}–${endTime(r.startTime,r.duration)} (${r.duration}h)</div><div class="cb-stu">${stuText}</div>${heightPx>36?`<div class="cb-fee">¥${r.fee}</div>`:""}`;
+    const lockIcon = locked ? '<span class="cb-lock">🔒</span>' : '';
+    block.innerHTML = `${lockIcon}<div class="cb-time">${r.startTime}–${endTime(r.startTime,r.duration)} (${r.duration}h)</div><div class="cb-stu">${stuText}</div>${heightPx>36?`<div class="cb-fee">¥${r.fee}</div>`:""}`;
     block.dataset.recId = r.id;
-    block.onclick = (e)=>{ e.stopPropagation(); if(block._wasDragged){ block._wasDragged=false; return; } openEdit(r.id); };
-    bindDrag(block, r.id);
+    if(locked){
+      block.onclick = (e)=>{ e.stopPropagation(); showToast("该课程已结课锁定，不可编辑"); };
+    } else {
+      block.onclick = (e)=>{ e.stopPropagation(); if(block._wasDragged){ block._wasDragged=false; return; } openEdit(r.id); };
+      bindDrag(block, r.id);
+    }
     col.appendChild(block);
   });
 }
@@ -1708,6 +1761,7 @@ function onSlotClick(date,hour,e){
 
 function openEdit(id){
   const r=RECS.find(x=>String(x.id)===String(id)); if(!r) return;
+  if(isLocked(r)){ showToast("该课程已结课锁定，不可编辑"); return; }
   editId=r.id; isRuleMode=false; editingRuleId=null;
   document.getElementById("add-title").textContent="编辑课程";
   document.getElementById("del-btn").style.display="inline-block";
@@ -1851,7 +1905,8 @@ async function saveRecord(){
       const i=RULES.findIndex(r=>String(r.id)===String(editingRuleId));
       if(i>-1){
         RULES[i]=newRule;
-        RECS=RECS.filter(r=>String(r.ruleId)!==String(editingRuleId));
+        // 保留已锁定课程（courseLocked），只删除未锁定的，让 generateFromRules 按新规则重新生成
+        RECS=RECS.filter(r=>String(r.ruleId)!==String(editingRuleId) || r.courseLocked);
       }
     } else { RULES.push(newRule); }
     saveRules(); saveRecs();
@@ -1876,6 +1931,11 @@ async function saveRecord(){
   // ── 普通课程 ──
   const date=document.getElementById("i-date").value;
   if(!date){alert("请选择日期");return}
+  // 防御：已结课锁定的课程不允许保存修改
+  if(editId!==null){
+    const tgt = RECS.find(r=>String(r.id)===String(editId));
+    if(tgt && isLocked(tgt)){ showToast("该课程已结课锁定，不可编辑"); return; }
+  }
   // 检查时间冲突（时间范围重叠）
   generateFromRules(); // 先同步规则生成的课程，确保检测覆盖所有记录
   if(isTimeConflict(date, start, dur, editId)){
@@ -1927,6 +1987,8 @@ async function deleteEdit(){
     return;
   }
   if(editId===null) return;
+  const tgt = RECS.find(r=>String(r.id)===String(editId));
+  if(tgt && isLocked(tgt)){ showToast("该课程已结课锁定，不可删除"); return; }
   if(!confirm("确认删除此课程？")) return;
   const delRec = RECS.find(r=>String(r.id)===String(editId));
   if(delRec && delRec.ruleId){
@@ -1962,7 +2024,11 @@ function renderList(){
     const [yy,mm,dd]=r.date.split("-");
     const timeCell=r.startTime?`<span style="white-space:nowrap;color:#888">${r.startTime}</span>`:`<span style="white-space:nowrap;color:#c0392b;font-size:11px;background:#fdf2f2;padding:1px 6px;border-radius:4px;border:1px solid #f5c6c6">未排课</span>`;
     const ruleTag=r.ruleId?'<span class="rule-tag">规则</span>':"";
-    return `<tr><td style="white-space:nowrap">${yy}年${+mm}月${+dd}日</td><td>${timeCell}</td><td><span class="badge" style="background:${tc};color:${tcFg};border:1px solid ${tcFg}44">${r.type}</span>${ruleTag}</td><td>${r.duration}h</td><td>${sb}</td><td style="text-align:center">${r.students.length}</td><td class="fee-val">¥${r.fee}</td><td style="color:#888;font-size:12px">${r.note||"—"}</td><td style="text-align:center;white-space:nowrap"><button class="btn-edit-sm" onclick="openEdit('${r.id}')">编辑</button><button class="btn-danger-sm" onclick="delR('${r.id}')" style="margin-left:4px">删除</button></td></tr>`;
+    const lockedTag = isLocked(r) ? '<span class="rule-tag" style="background:#eee;color:#999;border-color:#ccc">🔒已结课</span>' : "";
+    const actionCell = isLocked(r)
+      ? '<span style="color:#aaa;font-size:12px">—</span>'
+      : `<button class="btn-edit-sm" onclick="openEdit('${r.id}')">编辑</button><button class="btn-danger-sm" onclick="delR('${r.id}')" style="margin-left:4px">删除</button>`;
+    return `<tr><td style="white-space:nowrap">${yy}年${+mm}月${+dd}日</td><td>${timeCell}</td><td><span class="badge" style="background:${tc};color:${tcFg};border:1px solid ${tcFg}44">${r.type}</span>${ruleTag}${lockedTag}</td><td>${r.duration}h</td><td>${sb}</td><td style="text-align:center">${r.students.length}</td><td class="fee-val">¥${r.fee}</td><td style="color:#888;font-size:12px">${r.note||"—"}</td><td style="text-align:center;white-space:nowrap">${actionCell}</td></tr>`;
   }).join("");
   document.getElementById("s-cnt").textContent=f.length;
   document.getElementById("s-hrs").textContent=th;
@@ -2175,6 +2241,8 @@ function delTx(id){
 }
 
 async function delR(id){
+  const rec0 = RECS.find(r=>String(r.id)===String(id));
+  if(rec0 && isLocked(rec0)){ showToast("该课程已结课锁定，不可删除"); return; }
   if(!confirm("确认删除？")) return;
   const rec = RECS.find(r=>String(r.id)===String(id));
   if(rec && rec.ruleId){
@@ -2237,17 +2305,38 @@ function calcCumulativeTax(cumTaxable){
 }
 
 /* 计算某月个税（累计预扣法）。
-   所有历史 tax 均由本函数根据 gross 实时重算，不读取 hist.tax 固化值 */
+   如果 hist 中某月有 tax 字段（手动覆盖），则使用该值作为实际已扣税额；
+   否则按公式计算。当前月始终按公式计算。 */
 function calcMonthTax(yr, mo, effThreshold, hist){
   let cumGross=0, months=0;
+  let actualCumTax=0; // 实际累计已扣税额（手动优先，否则公式）
+
   for(let m=1; m<=mo; m++){
     const key=yr+"-"+(m<10?"0":"")+m;
     const rec=hist[key];
-    if(rec && rec.gross!=null){ cumGross+=rec.gross; months++; }
-  }
-  const cumTaxable=Math.max(0, cumGross - months*effThreshold);
-  const cumTax=Math.round(calcCumulativeTax(cumTaxable)*100)/100;
+    if(rec && rec.gross!=null){
+      cumGross+=rec.gross; months++;
+    }
+    const cumTaxable=Math.max(0, cumGross - months*effThreshold);
+    const cumTax=Math.round(calcCumulativeTax(cumTaxable)*100)/100;
 
+    if(m < mo){
+      // 前序月份：有手动 tax 就用，否则按公式算
+      if(rec && rec.tax != null){
+        actualCumTax = Math.round((actualCumTax + rec.tax)*100)/100;
+      } else {
+        const monthTax = Math.round((cumTax - actualCumTax)*100)/100;
+        actualCumTax = Math.round((actualCumTax + monthTax)*100)/100;
+      }
+    }
+  }
+
+  // 当前月累计税额（公式计算）
+  const curCumTaxable = Math.max(0, cumGross - months*effThreshold);
+  const curCumTax = Math.round(calcCumulativeTax(curCumTaxable)*100)/100;
+  const curTax = Math.round((curCumTax - actualCumTax)*100)/100;
+
+  // 前序月份统计（用于显示）
   let prevCumGross=0, prevMonths=0;
   for(let m=1; m<mo; m++){
     const key=yr+"-"+(m<10?"0":"")+m;
@@ -2255,10 +2344,8 @@ function calcMonthTax(yr, mo, effThreshold, hist){
     if(rec && rec.gross!=null){ prevCumGross+=rec.gross; prevMonths++; }
   }
   const prevCumTaxable=Math.max(0, prevCumGross - prevMonths*effThreshold);
-  const prevCumTax=Math.round(calcCumulativeTax(prevCumTaxable)*100)/100;
 
-  const curTax=Math.round((cumTax - prevCumTax)*100)/100;
-  return {curTax, cumTax, prevCumTax, cumTaxable, prevCumTaxable, months, prevMonths};
+  return {curTax, cumTax: curCumTax, prevCumTax: actualCumTax, cumTaxable: curCumTaxable, prevCumTaxable, months, prevMonths};
 }
 
 function recalcSalary(feeOverride){
@@ -2310,12 +2397,14 @@ function renderSalaryHistory(hist,curYr,curMo,effThreshold){
     const r=hist[key]; const isCur=key===(curYr+"-"+(curMo<10?"0":"")+curMo);
     const yr=parseInt(key.split("-")[0]), mo=parseInt(key.split("-")[1]);
     const tr=calcMonthTax(yr,mo,effThreshold,hist);
-    const tax=tr.curTax;
+    // 有手动 tax 就显示手动值，否则显示公式计算值
+    const tax = r.tax != null ? r.tax : tr.curTax;
     const net=((r.gross||0)-tax).toFixed(2);
     const feeDisp=r.fee!=null?'¥'+r.fee:'—';
+    const taxBadge = r.tax != null ? ' <span style="font-size:10px;color:#aaa">(手动)</span>' : '';
     html+=`<tr${isCur?' style="background:#EEEDFE"':''}>
       <td>${key}</td><td>${feeDisp}</td><td>¥${r.gross||0}</td>
-      <td class="td-tax">¥${tax.toFixed(2)}</td>
+      <td class="td-tax">¥${tax.toFixed(2)}${taxBadge}</td>
       <td class="td-net">¥${net}</td>
       <td class="td-ops">
         <button class="btn-edit-sm" onclick="openSalaryEdit('${key}')">编辑</button>
@@ -2343,6 +2432,7 @@ function openSalaryEdit(key){
   document.getElementById("sh-month").style.background=key?"#f5f4f0":"";
   document.getElementById("sh-gross").value=r?r.gross:"";
   document.getElementById("sh-fee").value=r?(r.fee!=null?r.fee:""):"";
+  document.getElementById("sh-tax").value=r?(r.tax!=null?r.tax:""):"";
   document.getElementById("sh-modal-title").textContent=key?"编辑工资记录":"手动添加工资记录";
   document.getElementById("sh-modal").classList.add("open");
   setTimeout(()=>document.getElementById("sh-month").focus(),80);
@@ -2356,11 +2446,20 @@ function saveSalaryEdit(){
   const gross=parseFloat(document.getElementById("sh-gross").value);
   const feeRaw=document.getElementById("sh-fee").value.trim();
   const fee=feeRaw===""?null:parseFloat(feeRaw);
+  const taxRaw=document.getElementById("sh-tax").value.trim();
   if(!month||!/^\d{4}-\d{2}$/.test(month)){alert("请输入正确的月份格式，如 2026-01");return;}
   if(isNaN(gross)){alert("请输入税前工资");return;}
   const hist=getSalaryHistory();
   if(!origKey && hist[month]){if(!confirm(`${month} 已有记录，确认覆盖？`))return;}
-  hist[month]={fee:fee, gross:round2(gross)};  // 不再保存 tax，由系统统一实时计算
+  const existing = hist[month] || {};
+  const record = {fee:fee, gross:round2(gross)};
+  // 用户输入了税额就保存为手动覆盖，否则保留已有 tax，都没有就不存
+  if(taxRaw !== ""){
+    record.tax = round2(parseFloat(taxRaw));
+  } else if(existing.tax != null){
+    record.tax = existing.tax;
+  }
+  hist[month] = record;
   saveSalaryHistory(hist);
   closeSalaryEdit();
   recalcSalary();
@@ -2400,11 +2499,11 @@ function checkImportHistory(){
   if(getCurrentUser()!=="方老师") return;
   const curYr=new Date().getFullYear(); const curMo=new Date().getMonth()+1;
   const knownData={
-    [curYr+"-01"]:{fee:5550, gross:7866.4},
-    [curYr+"-02"]:{fee:6772.5, gross:9098.9},
-    [curYr+"-03"]:{fee:4450, gross:6776.4},
-    [curYr+"-04"]:{fee:7379, gross:9805.5},
-    [curYr+"-05"]:{fee:10053, gross:12479.5}
+    [curYr+"-01"]:{fee:5550, gross:7866.4, tax:0},
+    [curYr+"-02"]:{fee:6772.5, gross:9098.9, tax:25.99},
+    [curYr+"-03"]:{fee:4450, gross:6776.4, tax:122.19},
+    [curYr+"-04"]:{fee:7379, gross:9805.5, tax:49.63},
+    [curYr+"-05"]:{fee:10053, gross:12479.5, tax:142.67}
   };
   let imported=0;
   for(let m=1;m<curMo;m++){
@@ -2432,17 +2531,139 @@ function openRuleMgr(){ renderRuleList(); document.getElementById("rule-modal").
 function closeRuleMgr(){ document.getElementById("rule-modal").classList.remove("open"); }
 
 function renderRuleList(){
-  document.getElementById("rule-count-lbl").textContent=`共 ${RULES.length} 条`;
+  const activeRules = RULES.filter(r=>!r.finished);
+  const finishedRules = RULES.filter(r=>r.finished);
+  document.getElementById("rule-count-lbl").textContent=`共 ${activeRules.length} 条` + (finishedRules.length ? ` (已结课 ${finishedRules.length})` : ``);
   const box=document.getElementById("rule-list");
   if(!RULES.length){box.innerHTML='<div style="color:#aaa;text-align:center;padding:20px;font-size:13px">暂无排课规则</div>';return;}
-  box.innerHTML=RULES.map(r=>{
+
+  function ruleHTML(r, finished){
     const stuText=r.students.slice(0,4).join("、")+(r.students.length>4?"…":"");
     let dateRange="";
     if(r.startDate||r.endDate){ const s=r.startDate?formatDateCN(r.startDate):"开始"; const e=r.endDate?formatDateCN(r.endDate):"以后"; dateRange=` · ${s} ~ ${e}`; }
     const dows = r.daysOfWeek && r.daysOfWeek.length ? r.daysOfWeek : (r.dayOfWeek ? [r.dayOfWeek] : []);
     const dayLabel = dows.length===7?"每天":dows.length===0?"未设置":("每"+dows.map(d=>DAY_NAMES[d-1]).join(""));
-    return `<div class="rule-row"><div class="rule-info"><span class="ri-day">${dayLabel}</span><span class="ri-time">${r.startTime} · ${r.duration}h · ${r.type}</span><div class="ri-detail">${stuText}${r.note?" · "+r.note:""}${dateRange}</div></div><button class="btn-edit-sm" onclick="editRule('${r.id}')">编辑</button><button class="btn-danger-sm" onclick="deleteRule('${r.id}')">删除</button></div>`;
-  }).join("");
+    const cls = finished ? 'rule-row rule-finished' : 'rule-row';
+    const badge = finished ? '<span class="finished-badge">已结课</span>' : '';
+    const btns = finished
+      ? `<button class="btn-edit-sm" onclick="reactivateRule('${r.id}')">重新激活</button><button class="btn-danger-sm" onclick="deleteRule('${r.id}')">删除</button>`
+      : `<button class="btn btn-success" style="font-size:11px;padding:3px 10px" onclick="finishRule('${r.id}')">结课</button><button class="btn-edit-sm" onclick="editRule('${r.id}')">编辑</button><button class="btn-danger-sm" onclick="deleteRule('${r.id}')">删除</button>`;
+    return `<div class="${cls}"><div class="rule-info"><span class="ri-day">${dayLabel}</span>${badge}<span class="ri-time">${r.startTime} · ${r.duration}h · ${r.type}</span><div class="ri-detail">${stuText}${r.note?" · "+r.note:""}${dateRange}</div></div><div style="display:flex;gap:4px;align-items:center">${btns}</div></div>`;
+  }
+
+  let html = '';
+  // 活跃规则
+  if(!activeRules.length){
+    html += '<div style="color:#aaa;text-align:center;padding:20px;font-size:13px">暂无排课规则</div>';
+  } else {
+    html += activeRules.map(r=>ruleHTML(r,false)).join("");
+  }
+  // 已结课规则
+  if(finishedRules.length){
+    html += `<div class="finished-sep" onclick="toggleFinished()"><span id="finished-arrow">▶</span> 已结课规则 (${finishedRules.length})</div>`;
+    html += `<div id="finished-block" style="display:none">${finishedRules.map(r=>ruleHTML(r,true)).join("")}</div>`;
+  }
+  box.innerHTML = html;
+}
+
+//  当天全部结课 — 锁定今天所有课程，自动检测规则是否全部结课
+function endToday(){
+  const todayStr = dkey(new Date());
+  const todayRecs = RECS.filter(r => r.date === todayStr);
+  if(!todayRecs.length){ showToast("今天没有课程"); return; }
+  const unlocked = todayRecs.filter(r => !isLocked(r));
+  if(!unlocked.length){ showToast("今天的课程已全部结课"); return; }
+  if(!confirm(`确定将今天 (${todayStr}) 的 ${unlocked.length} 节课全部结课？\n\n结课后：\n• 课程锁定，不可编辑/拖拽/删除\n• 若某规则的所有课程均已结课，该规则将自动标记为已结课`)) return;
+  // 锁定今天所有未锁定的课程
+  unlocked.forEach(r => { r.courseLocked = true; });
+  // 检查每条规则：若所有课程均已锁定，自动结课
+  const ruleIds = new Set();
+  unlocked.forEach(r => { if(r.ruleId) ruleIds.add(r.ruleId); });
+  let finishedCount = 0;
+  ruleIds.forEach(rid => {
+    const rule = RULES.find(r => String(r.id) === String(rid));
+    if(!rule || rule.finished) return;
+    const ruleRecs = RECS.filter(r => String(r.ruleId) === String(rid));
+    if(ruleRecs.length && ruleRecs.every(r => isLocked(r))){
+      rule.finished = true;
+      finishedCount++;
+    }
+  });
+  saveRecs(); saveRules(); scheduleCloudSync();
+  refresh();
+  if(document.getElementById("rule-modal").classList.contains("open")) renderRuleList();
+  let msg = `已结课 ${unlocked.length} 节课程`;
+  if(finishedCount > 0) msg += `，${finishedCount} 条规则自动结课`;
+  showToast(msg);
+}
+
+//  锁定今天之前所有课程
+function endBeforeToday(){
+  const todayStr = dkey(new Date());
+  const beforeRecs = RECS.filter(r => r.date < todayStr);
+  if(!beforeRecs.length){ showToast("今天之前没有课程"); return; }
+  const unlocked = beforeRecs.filter(r => !isLocked(r));
+  if(!unlocked.length){ showToast("今天之前的课程已全部锁定"); return; }
+  if(!confirm(`确定将今天之前 (截止 ${todayStr}) 共 ${unlocked.length} 节未锁定课程全部结课？\n\n结课后：\n• 课程锁定，不可编辑/拖拽/删除\n• 若某规则的所有课程均已结课，该规则将自动标记为已结课`)) return;
+  // 锁定所有未锁定课程
+  unlocked.forEach(r => { r.courseLocked = true; });
+  // 检查每条规则：若所有课程均已锁定，自动结课
+  const ruleIds = new Set();
+  unlocked.forEach(r => { if(r.ruleId) ruleIds.add(r.ruleId); });
+  let finishedCount = 0;
+  ruleIds.forEach(rid => {
+    const rule = RULES.find(r => String(r.id) === String(rid));
+    if(!rule || rule.finished) return;
+    const ruleRecs = RECS.filter(r => String(r.ruleId) === String(rid));
+    if(ruleRecs.length && ruleRecs.every(r => isLocked(r))){
+      rule.finished = true;
+      finishedCount++;
+    }
+  });
+  saveRecs(); saveRules(); scheduleCloudSync();
+  refresh();
+  if(document.getElementById("rule-modal").classList.contains("open")) renderRuleList();
+  let msg = `已锁定 ${unlocked.length} 节历史课程`;
+  if(finishedCount > 0) msg += `，${finishedCount} 条规则自动结课`;
+  showToast(msg);
+}
+
+//  结课 / 重新激活
+function finishRule(rid){
+  const rule = RULES.find(r=>String(r.id)===String(rid));
+  if(!rule) return;
+  if(!confirm("确定将该规则结课？\n\n结课后：\n• 已有课程记录保留不变，但全部锁定（不可编辑/拖拽/删除）\n• 规则将不再生成新课程，并从活跃列表中隐藏")) return;
+  rule.finished = true;
+  saveRules();
+  // 清除本规则当天之后未手动编辑过的课程记录（可选：仅标记，不做删除）
+  renderRuleList();
+  refresh();
+}
+
+function reactivateRule(rid){
+  const rule = RULES.find(r=>String(r.id)===String(rid));
+  if(!rule) return;
+  const lockedCount = RECS.filter(r=>String(r.ruleId)===String(rid) && r.courseLocked).length;
+  const msg = lockedCount > 0
+    ? `确定重新激活该规则？\n\n注意：${lockedCount} 节已结课的课程将保持锁定状态（不可编辑），\n后续课程将按规则重新生成。`
+    : "确定重新激活该规则？";
+  if(!confirm(msg)) return;
+  rule.finished = false;
+  saveRules();
+  renderRuleList();
+  refresh();
+}
+
+function toggleFinished(){
+  const blk = document.getElementById("finished-block");
+  const arr = document.getElementById("finished-arrow");
+  if(blk.style.display==="none"){
+    blk.style.display="";
+    arr.textContent="▼";
+  } else {
+    blk.style.display="none";
+    arr.textContent="▶";
+  }
 }
 
 async function deleteRule(rid){
