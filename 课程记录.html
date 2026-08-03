@@ -1339,8 +1339,12 @@ async function loadFromCloud(){
       localStorage.setItem(DETACHED_KEY,JSON.stringify(_detached));
     }
   }
-  // 以下字段无频繁写入，正常加载
-  if(ud.student_list && Array.isArray(ud.student_list)){ STUS = ud.student_list; localStorage.setItem(STUDENT_LIST_KEY,JSON.stringify(STUS)); }
+  // 以下字段无频繁写入，正常加载（student_list 也受 dirty 保护，防止归档等操作被云端覆盖）
+  if(_hasUnpushedChanges || dirty === "dirty"){
+    console.log("⏸️ 本地有未推送修改，跳过 student_list 覆写");
+  } else {
+    if(ud.student_list && Array.isArray(ud.student_list)){ STUS = ud.student_list; localStorage.setItem(STUDENT_LIST_KEY,JSON.stringify(STUS)); }
+  }
   if(ud.salary_history && typeof ud.salary_history==="object"){ localStorage.setItem(SALARY_KEY,JSON.stringify(ud.salary_history)); }
   if(ud.salary_config && typeof ud.salary_config==="object"){ localStorage.setItem(SALARY_CFG_KEY,JSON.stringify(ud.salary_config)); }
   if(ud.overtime && Array.isArray(ud.overtime)){ localStorage.setItem(OT_KEY,JSON.stringify(ud.overtime)); }
@@ -2712,11 +2716,13 @@ function archiveStu(i){
   if(!confirm(`将「${STUS[i].name}」转入历史学员？\n\n转入后：\n• 新建排课时不再显示该学员\n• 已有的课程记录不受影响`)) return;
   STUS[i].archived = true;
   localStorage.setItem(STUDENT_LIST_KEY, JSON.stringify(STUS));
+  _hasUnpushedChanges = true; localStorage.setItem("_cloud_state","dirty");
   scheduleCloudSync(); renderStuList(); refresh();
 }
 function restoreStu(i){
   STUS[i].archived = false;
   localStorage.setItem(STUDENT_LIST_KEY, JSON.stringify(STUS));
+  _hasUnpushedChanges = true; localStorage.setItem("_cloud_state","dirty");
   scheduleCloudSync(); renderStuList(); refresh();
 }
 function toggleArchiveSection(){
@@ -2725,18 +2731,18 @@ function toggleArchiveSection(){
   if(sec.style.display === "none"){ sec.style.display = "block"; tog.textContent = "▲"; }
   else { sec.style.display = "none"; tog.textContent = "▼"; }
 }
-function toggleGrade(i){ STUS[i].grade=STUS[i].grade==="senior"?"junior":"senior"; localStorage.setItem(STUDENT_LIST_KEY,JSON.stringify(STUS)); scheduleCloudSync(); renderStuList(); refresh(); }
+function toggleGrade(i){ STUS[i].grade=STUS[i].grade==="senior"?"junior":"senior"; localStorage.setItem(STUDENT_LIST_KEY,JSON.stringify(STUS)); _hasUnpushedChanges = true; localStorage.setItem("_cloud_state","dirty"); scheduleCloudSync(); renderStuList(); refresh(); }
 function addStu(){
   const nm=document.getElementById("new-name").value.trim();
   const gr=document.getElementById("new-grade").value;
   if(!nm){document.getElementById("new-name").focus();return;}
   if(STUS.find(s=>s.name===nm)){alert(`「${nm}」已存在`);return;}
-  STUS.push({name:nm,grade:gr}); localStorage.setItem(STUDENT_LIST_KEY,JSON.stringify(STUS)); scheduleCloudSync(); renderStuList();
+  STUS.push({name:nm,grade:gr}); localStorage.setItem(STUDENT_LIST_KEY,JSON.stringify(STUS)); _hasUnpushedChanges = true; localStorage.setItem("_cloud_state","dirty"); scheduleCloudSync(); renderStuList();
   document.getElementById("new-name").value=""; document.getElementById("new-name").focus();
 }
 function removeStu(i){
   if(!confirm(`删除学员「${STUS[i].name}」？`)) return;
-  STUS.splice(i,1); localStorage.setItem(STUDENT_LIST_KEY,JSON.stringify(STUS)); scheduleCloudSync(); renderStuList(); refresh();
+  STUS.splice(i,1); localStorage.setItem(STUDENT_LIST_KEY,JSON.stringify(STUS)); _hasUnpushedChanges = true; localStorage.setItem("_cloud_state","dirty"); scheduleCloudSync(); renderStuList(); refresh();
 }
 function editStuName(i){
   const oldName = STUS[i].name;
@@ -2750,6 +2756,7 @@ function editStuName(i){
   RULES.forEach(r=>{ if(r.students){ r.students=r.students.map(s=>s===oldName?nm:s); } });
   STUS[i].name = nm;
   localStorage.setItem(STUDENT_LIST_KEY, JSON.stringify(STUS));
+  _hasUnpushedChanges = true; localStorage.setItem("_cloud_state","dirty");
   saveRecs(); saveRules();
   renderStuList(); refresh();
 }
