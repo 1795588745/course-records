@@ -214,6 +214,12 @@ body{font-family:"PingFang SC","Microsoft YaHei",sans-serif;background:#f5f4f0;c
 .smname .edit-btn:hover{color:#534AB7}
 .gtag{font-size:11px;padding:2px 7px;border-radius:4px;font-weight:500;cursor:pointer}
 .gtag:hover{opacity:.75}
+.btn-amber-sm{background:none;border:1px solid #e8dccf;color:#8B6F4E;border-radius:5px;padding:3px 8px;font-size:11px;cursor:pointer;font-family:inherit}
+.btn-amber-sm:hover{background:#F5F0E8}
+.stu-section-hdr{font-size:12px;color:#888;padding:8px 10px 4px;border-top:1px solid #e8e7e3;margin-top:8px;cursor:pointer;user-select:none}
+.stu-section-hdr:hover{color:#5f5e5a}
+.smrow.archived{background:#f5f4f0;opacity:.65}
+.smrow.archived:hover{background:#efeee9;opacity:.8}
 .add-form{display:flex;gap:8px;margin-top:12px;padding-top:12px;border-top:1px solid #e8e7e3;align-items:flex-end;flex-wrap:wrap}
 .add-form input{padding:7px 10px;border:1px solid #d9d8d4;border-radius:7px;font-size:13px;font-family:inherit;outline:none;width:120px}
 .add-form input:focus{border-color:#534AB7}
@@ -1834,8 +1840,8 @@ function buildStuBox(checked){
   const type=document.getElementById("i-type").value;
   const typeInfo=detectTypeGradeFromName(type);
   const gradeNeed=typeInfo.grade;
-  let candidates=STUS;
-  if(gradeNeed) candidates=STUS.filter(s=>s.grade===gradeNeed);
+  let candidates=STUS.filter(s=>!s.archived);
+  if(gradeNeed) candidates=candidates.filter(s=>s.grade===gradeNeed);
   // 只保留符合年级的已选学员
   const validChecked=checked.filter(n=>candidates.find(s=>s.name===n));
   if(!candidates.length){box.innerHTML='<div style="color:#aaa;font-size:12px;padding:6px">该类型暂无可选学员</div>';return;}
@@ -2682,10 +2688,42 @@ async function deleteRule(rid){
 function openStuMgr(){ renderStuList(); document.getElementById("stu-modal").classList.add("open"); setTimeout(()=>document.getElementById("new-name").focus(),80); }
 function closeStuMgr(){ document.getElementById("stu-modal").classList.remove("open"); }
 function renderStuList(){
-  document.getElementById("stu-count-lbl").textContent=`共 ${STUS.length} 名`;
+  const active = STUS.filter(s=>!s.archived);
+  const archived = STUS.filter(s=>s.archived);
+  document.getElementById("stu-count-lbl").textContent = `在读 ${active.length} 名` + (archived.length ? ` · 历史 ${archived.length} 名` : "");
   const box=document.getElementById("stu-list");
   if(!STUS.length){box.innerHTML='<div style="color:#aaa;text-align:center;padding:20px;font-size:13px">暂无学员</div>';return;}
-  box.innerHTML=STUS.map((s,i)=>`<div class="smrow"><span class="smname">${s.name}<span class="edit-btn" onclick="event.stopPropagation();editStuName(${i})" title="编辑姓名">✎</span></span><span class="gtag ${s.grade==="senior"?"bs":"bj"}" onclick="toggleGrade(${i})" title="点击切换年级">${s.grade==="senior"?"高中":"初中"}</span><button class="btn-danger-sm" onclick="removeStu(${i})">删除</button></div>`).join("");
+  let html = active.map((s)=>{
+    const i = STUS.indexOf(s);
+    return `<div class="smrow"><span class="smname">${s.name}<span class="edit-btn" onclick="event.stopPropagation();editStuName(${i})" title="编辑姓名">✎</span></span><span class="gtag ${s.grade==="senior"?"bs":"bj"}" onclick="toggleGrade(${i})" title="点击切换年级">${s.grade==="senior"?"高中":"初中"}</span><button class="btn-amber-sm" onclick="archiveStu(${i})" title="转入历史学员，新建排课不再可选">结课</button><button class="btn-danger-sm" onclick="removeStu(${i})">删除</button></div>`;
+  }).join("");
+  if(archived.length){
+    html += `<div class="stu-section-hdr" onclick="toggleArchiveSection()">📦 历史学员 (${archived.length}) <span id="archive-toggle" style="float:right">▼</span></div>`;
+    html += `<div id="archive-section" style="display:none">`;
+    html += archived.map((s)=>{
+      const i = STUS.indexOf(s);
+      return `<div class="smrow archived"><span class="smname">${s.name}</span><span class="gtag ${s.grade==="senior"?"bs":"bj"}">${s.grade==="senior"?"高中":"初中"}</span><button class="btn-edit-sm" onclick="restoreStu(${i})">恢复</button><button class="btn-danger-sm" onclick="removeStu(${i})">删除</button></div>`;
+    }).join("");
+    html += `</div>`;
+  }
+  box.innerHTML = html;
+}
+function archiveStu(i){
+  if(!confirm(`将「${STUS[i].name}」转入历史学员？\n\n转入后：\n• 新建排课时不再显示该学员\n• 已有的课程记录不受影响`)) return;
+  STUS[i].archived = true;
+  localStorage.setItem(STUDENT_LIST_KEY, JSON.stringify(STUS));
+  scheduleCloudSync(); renderStuList(); refresh();
+}
+function restoreStu(i){
+  STUS[i].archived = false;
+  localStorage.setItem(STUDENT_LIST_KEY, JSON.stringify(STUS));
+  scheduleCloudSync(); renderStuList(); refresh();
+}
+function toggleArchiveSection(){
+  const sec = document.getElementById("archive-section");
+  const tog = document.getElementById("archive-toggle");
+  if(sec.style.display === "none"){ sec.style.display = "block"; tog.textContent = "▲"; }
+  else { sec.style.display = "none"; tog.textContent = "▼"; }
 }
 function toggleGrade(i){ STUS[i].grade=STUS[i].grade==="senior"?"junior":"senior"; localStorage.setItem(STUDENT_LIST_KEY,JSON.stringify(STUS)); scheduleCloudSync(); renderStuList(); refresh(); }
 function addStu(){
