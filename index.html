@@ -1066,6 +1066,7 @@ function loadFeeTiers(){
 // 保存分档列表
 function saveFeeTiers(tiers){
   localStorage.setItem(FEE_TIERS_KEY, JSON.stringify(tiers));
+  _hasUnpushedChanges = true; localStorage.setItem("_cloud_state","dirty");
   scheduleCloudSync();
 }
 
@@ -1075,6 +1076,7 @@ function loadCustomTypes(){
 }
 function saveCustomTypes(types){
   localStorage.setItem(CUSTOM_TYPES_KEY, JSON.stringify(types));
+  _hasUnpushedChanges = true; localStorage.setItem("_cloud_state","dirty");
   scheduleCloudSync();
 }
 
@@ -1339,18 +1341,18 @@ async function loadFromCloud(){
       localStorage.setItem(DETACHED_KEY,JSON.stringify(_detached));
     }
   }
-  // 以下字段无频繁写入，正常加载（student_list 也受 dirty 保护，防止归档等操作被云端覆盖）
+  // 所有字段统一受 dirty 保护，防止本地修改被云端旧数据覆盖
   if(_hasUnpushedChanges || dirty === "dirty"){
-    console.log("⏸️ 本地有未推送修改，跳过 student_list 覆写");
+    console.log("⏸️ 本地有未推送修改，跳过所有云端字段覆写");
   } else {
     if(ud.student_list && Array.isArray(ud.student_list)){ STUS = ud.student_list; localStorage.setItem(STUDENT_LIST_KEY,JSON.stringify(STUS)); }
+    if(ud.salary_history && typeof ud.salary_history==="object"){ localStorage.setItem(SALARY_KEY,JSON.stringify(ud.salary_history)); }
+    if(ud.salary_config && typeof ud.salary_config==="object"){ localStorage.setItem(SALARY_CFG_KEY,JSON.stringify(ud.salary_config)); }
+    if(ud.overtime && Array.isArray(ud.overtime)){ localStorage.setItem(OT_KEY,JSON.stringify(ud.overtime)); }
+    if(ud.txrest && Array.isArray(ud.txrest)){ localStorage.setItem(TX_KEY,JSON.stringify(ud.txrest)); }
+    if(ud.fee_tiers && Array.isArray(ud.fee_tiers)){ localStorage.setItem(FEE_TIERS_KEY,JSON.stringify(ud.fee_tiers)); }
+    if(ud.custom_types && Array.isArray(ud.custom_types)){ localStorage.setItem(CUSTOM_TYPES_KEY,JSON.stringify(ud.custom_types)); }
   }
-  if(ud.salary_history && typeof ud.salary_history==="object"){ localStorage.setItem(SALARY_KEY,JSON.stringify(ud.salary_history)); }
-  if(ud.salary_config && typeof ud.salary_config==="object"){ localStorage.setItem(SALARY_CFG_KEY,JSON.stringify(ud.salary_config)); }
-  if(ud.overtime && Array.isArray(ud.overtime)){ localStorage.setItem(OT_KEY,JSON.stringify(ud.overtime)); }
-  if(ud.txrest && Array.isArray(ud.txrest)){ localStorage.setItem(TX_KEY,JSON.stringify(ud.txrest)); }
-  if(ud.fee_tiers && Array.isArray(ud.fee_tiers)){ localStorage.setItem(FEE_TIERS_KEY,JSON.stringify(ud.fee_tiers)); }
-  if(ud.custom_types && Array.isArray(ud.custom_types)){ localStorage.setItem(CUSTOM_TYPES_KEY,JSON.stringify(ud.custom_types)); }
   if(hasData) console.log("☁️ 从云端加载了「"+user+"」的数据");
   return hasData;
   } finally {
@@ -2052,9 +2054,9 @@ function renderList(){
 // ══════════════════════════════
 
 function getOvertimeList(){ try{ return JSON.parse(localStorage.getItem(OT_KEY)||"[]"); }catch(e){ return []; } }
-function saveOvertimeList(arr){ localStorage.setItem(OT_KEY,JSON.stringify(arr)); scheduleCloudSync(); }
+function saveOvertimeList(arr){ localStorage.setItem(OT_KEY,JSON.stringify(arr)); _hasUnpushedChanges = true; localStorage.setItem("_cloud_state","dirty"); scheduleCloudSync(); }
 function getTxList(){ try{ return JSON.parse(localStorage.getItem(TX_KEY)||"[]"); }catch(e){ return []; } }
-function saveTxList(arr){ localStorage.setItem(TX_KEY,JSON.stringify(arr)); scheduleCloudSync(); }
+function saveTxList(arr){ localStorage.setItem(TX_KEY,JSON.stringify(arr)); _hasUnpushedChanges = true; localStorage.setItem("_cloud_state","dirty"); scheduleCloudSync(); }
 
 let _otCalYear = null, _otCalMonth = null;
 
@@ -2287,12 +2289,13 @@ function loadSalaryConfig(){
 function saveSalaryConfig(){
   const c={base:+document.getElementById("sp-base").value,deduct:+document.getElementById("sp-deduct").value,insurance:+document.getElementById("sp-insurance").value,threshold:+document.getElementById("sp-threshold").value||5000,extra_deduct:+document.getElementById("sp-extra-deduct").value||0};
   localStorage.setItem(SALARY_CFG_KEY,JSON.stringify(c));
+  _hasUnpushedChanges = true; localStorage.setItem("_cloud_state","dirty");
   scheduleCloudSync();
   recalcSalary(); showToast("工资设置已保存");
 }
 
 function getSalaryHistory(){ return JSON.parse(localStorage.getItem(SALARY_KEY)||"{}"); }
-function saveSalaryHistory(h){ localStorage.setItem(SALARY_KEY,JSON.stringify(h)); scheduleCloudSync(); }
+function saveSalaryHistory(h){ localStorage.setItem(SALARY_KEY,JSON.stringify(h)); _hasUnpushedChanges = true; localStorage.setItem("_cloud_state","dirty"); scheduleCloudSync(); }
 
 function getMonthGross(yr,mo){
   // 不在此调用 generateFromRules()——工资计算应只读数据，不应修改 RECS
