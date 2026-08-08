@@ -1466,15 +1466,38 @@ function calcFee(type,dur,cnt,date){
   if(dur===1.5) return m[1.5]!==undefined ? m[1.5] : 0;
   if(cnt>4){
     const isSenior = type.includes("高中")||type.includes("高一")||type.includes("高二")||type.includes("高三");
-    // 2026年7月起：高中一对多 >4人 涨价，底价160 + 每多1人加18
+    // 2026年7月起：高中一对多 >4人，底价190 + 每多1人加30
     if(isSenior && date && date >= "2026-07-01"){
-      return 160 + (cnt - 1) * 18;
+      return 190 + (cnt - 1) * 30;
     }
     // 原规则：初中130起，高中160起，每多1人加10
     const base = isSenior ? 160 : 130;
     return base + (cnt - 1) * 10;
   }
   return cnt>0 ? (m[Math.min(cnt,4)]||0) : 0;
+}
+// ── 课时费迁移：2026年7月起高中费率调整，重算已有记录 ──
+function migrateHighSchoolFees(){
+  const FLAG = "_fee_migrated_v2";
+  if(localStorage.getItem(FLAG)) return; // 已迁移过
+  let changed = 0;
+  RECS.forEach(r=>{
+    if(r.date && r.date >= "2026-07-01" && typeof r.type === "string" && r.type.includes("高中")){
+      const newFee = calcFee(r.type, r.duration, r.students ? r.students.length : 0, r.date);
+      if(newFee !== r.fee){
+        r.fee = newFee;
+        changed++;
+      }
+    }
+  });
+  if(changed > 0){
+    localStorage.setItem(STORAGE_KEY_RECS, JSON.stringify(RECS));
+    _hasUnpushedChanges = true;
+    localStorage.setItem("_cloud_state", "dirty");
+    scheduleCloudSync();
+    console.log(`[fee-migration] 更新了 ${changed} 条高中课程记录的课时费`);
+  }
+  localStorage.setItem(FLAG, "1");
 }
 function p2(n){return String(n).padStart(2,"0")}
 function dkey(d){return `${d.getFullYear()}-${p2(d.getMonth()+1)}-${p2(d.getDate())}`}
@@ -2923,6 +2946,8 @@ async function initApp(){
   if(getCurrentUser()!=="方老师" && !loadCustomTypes().length){
     saveCustomTypes(getDefaultCustomTypes());
   }
+  // 课时费迁移：重算2026年7月起的高中课程费率
+  migrateHighSchoolFees();
 
   initSelects();
   renderCal();
