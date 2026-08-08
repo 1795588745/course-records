@@ -1520,12 +1520,34 @@ function onDatePickerChange(val){ if(!val) return; weekStart=getMonday(new Date(
 // ── 锁定检测：已结课规则关联的课程不允许编辑/拖拽/删除 ──
 function isLocked(rec){
   if(!rec) return false;
+  if(rec.forceUnlocked) return false;   // 单独解锁覆盖（可重新锁定）
   if(rec.courseLocked) return true;   // 单课程锁定（当天结课）
   if(rec.ruleId){
     const rule = RULES.find(r=>String(r.id)===String(rec.ruleId));
     return !!(rule && rule.finished);  // 规则级锁定（规则结课）
   }
   return false;
+}
+
+// ── 单课解锁：解除某一节课的锁定，允许编辑/拖拽/删除 ──
+function unlockCourse(id){
+  const r=RECS.find(x=>String(x.id)===String(id)); if(!r) return;
+  if(!isLocked(r)){ showToast("该课程未锁定"); return; }
+  if(!confirm("确定解除该课程的锁定？\n\n解锁后可以编辑、拖拽、删除该课程。")) return;
+  r.courseLocked=false;
+  r.forceUnlocked=true;
+  saveRecs(); refresh();
+  showToast("已解除锁定，可编辑该课程");
+}
+
+// ── 重新锁定：将单独解锁的课程恢复锁定 ──
+function relockCourse(id){
+  const r=RECS.find(x=>String(x.id)===String(id)); if(!r) return;
+  if(!r.forceUnlocked){ showToast("该课程未单独解锁"); return; }
+  r.forceUnlocked=false;
+  r.courseLocked=true;
+  saveRecs(); refresh();
+  showToast("已重新锁定");
 }
 
 //  规则生成课程（客户端）
@@ -1666,7 +1688,7 @@ function renderCal(){
     block.innerHTML = `${lockIcon}<div class="cb-time">${r.startTime}–${endTime(r.startTime,r.duration)} (${r.duration}h)</div><div class="cb-stu">${stuText}</div>${heightPx>36?`<div class="cb-fee">¥${r.fee}</div>`:""}`;
     block.dataset.recId = r.id;
     if(locked){
-      block.onclick = (e)=>{ e.stopPropagation(); showToast("该课程已结课锁定，不可编辑"); };
+      block.onclick = (e)=>{ e.stopPropagation(); unlockCourse(r.id); };
     } else {
       block.onclick = (e)=>{ e.stopPropagation(); if(block._wasDragged){ block._wasDragged=false; return; } openEdit(r.id); };
       bindDrag(block, r.id);
@@ -2059,10 +2081,10 @@ function renderList(){
     const [yy,mm,dd]=r.date.split("-");
     const timeCell=r.startTime?`<span style="white-space:nowrap;color:#888">${r.startTime}</span>`:`<span style="white-space:nowrap;color:#c0392b;font-size:11px;background:#fdf2f2;padding:1px 6px;border-radius:4px;border:1px solid #f5c6c6">未排课</span>`;
     const ruleTag=r.ruleId?'<span class="rule-tag">规则</span>':"";
-    const lockedTag = isLocked(r) ? '<span class="rule-tag" style="background:#eee;color:#999;border-color:#ccc">🔒已结课</span>' : "";
+    const lockedTag = isLocked(r) ? '<span class="rule-tag" style="background:#eee;color:#999;border-color:#ccc">🔒已结课</span>' : (r.forceUnlocked ? '<span class="rule-tag" style="background:#fff3cd;color:#856404;border-color:#ffc107">🔓已解锁</span>' : "");
     const actionCell = isLocked(r)
-      ? '<span style="color:#aaa;font-size:12px">—</span>'
-      : `<button class="btn-edit-sm" onclick="openEdit('${r.id}')">编辑</button><button class="btn-danger-sm" onclick="delR('${r.id}')" style="margin-left:4px">删除</button>`;
+      ? `<button class="btn-edit-sm" onclick="unlockCourse('${r.id}')" style="color:#856404;border-color:#ffc107">🔓解锁</button>`
+      : `<button class="btn-edit-sm" onclick="openEdit('${r.id}')">编辑</button>${r.forceUnlocked?`<button class="btn-edit-sm" onclick="relockCourse('${r.id}')" style="margin-left:4px;color:#6c757d;border-color:#ced4da" title="重新锁定">🔒</button>`:''}<button class="btn-danger-sm" onclick="delR('${r.id}')" style="margin-left:4px">删除</button>`;
     return `<tr><td style="white-space:nowrap">${yy}年${+mm}月${+dd}日</td><td>${timeCell}</td><td><span class="badge" style="background:${tc};color:${tcFg};border:1px solid ${tcFg}44">${r.type}</span>${ruleTag}${lockedTag}</td><td>${r.duration}h</td><td>${sb}</td><td style="text-align:center">${r.students.length}</td><td class="fee-val">¥${r.fee}</td><td style="color:#888;font-size:12px">${r.note||"—"}</td><td style="text-align:center;white-space:nowrap">${actionCell}</td></tr>`;
   }).join("");
   document.getElementById("s-cnt").textContent=f.length;
