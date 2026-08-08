@@ -1466,9 +1466,9 @@ function calcFee(type,dur,cnt,date){
   if(dur===1.5) return m[1.5]!==undefined ? m[1.5] : 0;
   if(cnt>4){
     const isSenior = type.includes("高中")||type.includes("高一")||type.includes("高二")||type.includes("高三");
-    // 2026年7月起：高中一对多 >4人，底价190 + 每多1人加30
+    // 2026年7月起：高中一对多 >4人，底价160 + 每多1人加18（保持不变）
     if(isSenior && date && date >= "2026-07-01"){
-      return 190 + (cnt - 1) * 30;
+      return 160 + (cnt - 1) * 18;
     }
     // 原规则：初中130起，高中160起，每多1人加10
     const base = isSenior ? 160 : 130;
@@ -1478,7 +1478,7 @@ function calcFee(type,dur,cnt,date){
 }
 // ── 课时费迁移：2026年7月起高中费率调整，重算已有记录 ──
 function migrateHighSchoolFees(){
-  const FLAG = "_fee_migrated_v3";
+  const FLAG = "_fee_migrated_v4";
   if(localStorage.getItem(FLAG)) return; // 已迁移过
   let changed = 0;
   RECS.forEach(r=>{
