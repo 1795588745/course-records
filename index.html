@@ -3,6 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <title>课程记录</title>
 <!-- PWA: iOS Safari -->
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -2661,7 +2664,12 @@ function endBeforeToday(){
   const beforeRecs = RECS.filter(r => r.date < todayStr);
   if(!beforeRecs.length){ showToast("今天之前没有课程"); return; }
   const unlocked = beforeRecs.filter(r => !isLocked(r));
-  if(!unlocked.length){ showToast("今天之前的课程已全部锁定"); return; }
+  if(!unlocked.length){
+    // 诊断：显示有多少课被 forceUnlocked 标记阻止锁定
+    const fuCount = beforeRecs.filter(r => r.forceUnlocked).length;
+    showToast(fuCount > 0 ? `发现 ${fuCount} 节已解锁课程，但 isLocked 仍返回 true（可能页面缓存旧代码，请强制刷新）` : "今天之前的课程已全部锁定");
+    return;
+  }
   if(!confirm(`确定将今天之前 (截止 ${todayStr}) 共 ${unlocked.length} 节未锁定课程全部结课？\n\n结课后：\n• 课程锁定，不可编辑/拖拽/删除\n• 若某规则的所有课程均已结课，该规则将自动标记为已结课`)) return;
   // 锁定所有未锁定课程（清除 forceUnlocked 以防之前解锁过）
   unlocked.forEach(r => { r.courseLocked = true; r.forceUnlocked = false; });
@@ -3259,6 +3267,7 @@ function deleteTier(tid){
 function escHtml(s){ return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
 
 document.addEventListener("DOMContentLoaded",()=>{
+  console.log("%c课程记录 v20260808b (forceUnlocked fix)", "color:#0F6E56;font-weight:bold");
   document.getElementById("new-name").addEventListener("keydown",e=>{ if(e.key==="Enter") addStu(); });
   document.getElementById("ey").addEventListener("change",updateExpInfo);
   document.getElementById("em").addEventListener("change",updateExpInfo);
