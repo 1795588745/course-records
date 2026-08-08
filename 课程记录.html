@@ -2632,8 +2632,8 @@ function endToday(){
   const unlocked = todayRecs.filter(r => !isLocked(r));
   if(!unlocked.length){ showToast("今天的课程已全部结课"); return; }
   if(!confirm(`确定将今天 (${todayStr}) 的 ${unlocked.length} 节课全部结课？\n\n结课后：\n• 课程锁定，不可编辑/拖拽/删除\n• 若某规则的所有课程均已结课，该规则将自动标记为已结课`)) return;
-  // 锁定今天所有未锁定的课程
-  unlocked.forEach(r => { r.courseLocked = true; });
+  // 锁定今天所有未锁定的课程（清除 forceUnlocked 以防之前解锁过）
+  unlocked.forEach(r => { r.courseLocked = true; r.forceUnlocked = false; });
   // 检查每条规则：若所有课程均已锁定，自动结课
   const ruleIds = new Set();
   unlocked.forEach(r => { if(r.ruleId) ruleIds.add(r.ruleId); });
@@ -2663,8 +2663,8 @@ function endBeforeToday(){
   const unlocked = beforeRecs.filter(r => !isLocked(r));
   if(!unlocked.length){ showToast("今天之前的课程已全部锁定"); return; }
   if(!confirm(`确定将今天之前 (截止 ${todayStr}) 共 ${unlocked.length} 节未锁定课程全部结课？\n\n结课后：\n• 课程锁定，不可编辑/拖拽/删除\n• 若某规则的所有课程均已结课，该规则将自动标记为已结课`)) return;
-  // 锁定所有未锁定课程
-  unlocked.forEach(r => { r.courseLocked = true; });
+  // 锁定所有未锁定课程（清除 forceUnlocked 以防之前解锁过）
+  unlocked.forEach(r => { r.courseLocked = true; r.forceUnlocked = false; });
   // 检查每条规则：若所有课程均已锁定，自动结课
   const ruleIds = new Set();
   unlocked.forEach(r => { if(r.ruleId) ruleIds.add(r.ruleId); });
