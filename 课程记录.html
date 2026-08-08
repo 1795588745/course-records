@@ -1478,7 +1478,7 @@ function calcFee(type,dur,cnt,date){
 }
 // ── 课时费迁移：2026年7月起高中费率调整，重算已有记录 ──
 function migrateHighSchoolFees(){
-  const FLAG = "_fee_migrated_v2";
+  const FLAG = "_fee_migrated_v3";
   if(localStorage.getItem(FLAG)) return; // 已迁移过
   let changed = 0;
   RECS.forEach(r=>{
