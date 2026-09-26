@@ -857,7 +857,55 @@ function saveAccounts(accts){
   localStorage.setItem("_accounts", JSON.stringify(accts));
 }
 
+// ═══ 账号注册表云端同步（解决换设备/换浏览器登不上）═══
+// 账号（用户名→密码哈希）同时存云端 app_state.data.__accounts__，本机留缓存供离线登录
+let _cloudAccts = null;  // null=尚未从云端加载
+
+async function ensureCloudAccountsLoaded(){
+  if(_cloudAccts !== null) return _cloudAccts;
+  const cloud = await fetchFromCloudRaw();
+  _cloudAccts = (cloud && typeof cloud === "object" && cloud.__accounts__ && typeof cloud.__accounts__ === "object") ? cloud.__accounts__ : {};
+  return _cloudAccts;
+}
+
+function cacheCloudAccountsLocally(){
+  if(!_cloudAccts) return;
+  const arr = Object.keys(_cloudAccts).map(n => ({ name:n, passHash:_cloudAccts[n] }));
+  saveAccounts(arr);
+}
+
+async function pushAccountsToCloud(){
+  if(!cloudReady) return;
+  try {
+    const cloud = await fetchFromCloudRaw();
+    const allData = (cloud && typeof cloud === "object") ? cloud : {};
+    allData.__accounts__ = _cloudAccts || {};
+    await sb.from("app_state").upsert({ id:1, data: allData, updated_at: new Date().toISOString() });
+  } catch(e){ console.warn("账号云端同步失败:", e.message); }
+}
+
+// 首次打开：把本机已有账号上传云端（不覆盖云端已存在的同名账号），并缓存云端账号到本机
+async function migrateAccountsToCloud(){
+  try {
+    await ensureCloudAccountsLoaded();
+    const local = loadAccounts();
+    let changed = false;
+    (local||[]).forEach(a => {
+      if(a && a.name && _cloudAccts[a.name] === undefined){
+        _cloudAccts[a.name] = a.passHash;
+        changed = true;
+      }
+    });
+    if(changed) await pushAccountsToCloud();
+    cacheCloudAccountsLocally();
+  } catch(e){ console.warn("账号迁移失败（不影响本地使用）:", e.message); }
+}
+
+// 查找账号：云端优先（已加载到内存），本机兜底
 function findAccount(name){
+  if(_cloudAccts && _cloudAccts[name] !== undefined){
+    return { name, passHash: _cloudAccts[name] };
+  }
   return loadAccounts().find(a => a.name === name);
 }
 
@@ -938,10 +986,12 @@ async function doLogin(){
   const errEl = document.getElementById("login-err");
   if(!user){ errEl.textContent = "请输入账号"; return; }
   if(!pass){ errEl.textContent = "请输入密码"; return; }
+  await ensureCloudAccountsLoaded();
   const acct = findAccount(user);
   if(!acct){ errEl.textContent = "账号不存在，请先注册"; return; }
   const hash = await sha256(pass);
   if(hash !== acct.passHash){ errEl.textContent = "密码错误，请重试"; return; }
+  cacheCloudAccountsLocally();
   localStorage.setItem("_auth_user", user);
   setUserKeys(user);
   migrateOldData();
@@ -1015,16 +1065,19 @@ async function doRegister(){
   const errEl = document.getElementById("login-err2");
 
   if(!user){ errEl.textContent = "请输入账号"; return; }
+  if(user === "__accounts__"){ errEl.textContent = "该账号名不可用"; return; }
   if(user.length < 1 || user.length > 20){ errEl.textContent = "账号长度需在1-20个字符"; return; }
   if(/[<>"'&/\\]/.test(user)){ errEl.textContent = "账号不能包含特殊字符"; return; }
+  await ensureCloudAccountsLoaded();
   if(findAccount(user)){ errEl.textContent = "该账号已存在，请直接登录"; return; }
   if(!pass || pass.length < 3){ errEl.textContent = "密码至少3位"; return; }
   if(pass !== pass2){ errEl.textContent = "两次密码不一致"; return; }
 
   const hash = await sha256(pass);
-  const accts = loadAccounts();
-  accts.push({ name: user, passHash: hash });
-  saveAccounts(accts);
+  _cloudAccts = _cloudAccts || {};
+  _cloudAccts[user] = hash;
+  cacheCloudAccountsLocally();
+  scheduleCloudSync(); // pushToCloud 会带上 __accounts__，同步到云端
 
   localStorage.setItem("_auth_user", user);
   setUserKeys(user);
@@ -1246,6 +1299,7 @@ function stopCloudPolling(){
 }
 
 function initSupabase(){
+  if(sb) return; // 已初始化则跳过，避免重复启动轮询
   try { sb = window.supabase.createClient(SB_URL, SB_KEY); cloudReady = true; }
   catch(e){ console.warn("Supabase 初始化失败，仅本地模式"); cloudReady = false; return; }
   // 初始化 updated_at 基准值
@@ -1286,6 +1340,8 @@ async function pushToCloud(){
       fee_tiers: loadFeeTiers(),
       custom_types: loadCustomTypes()
     };
+    // 账号注册表（用户名→密码哈希）随课程数据一起上云，保证换设备可登录
+    if(_cloudAccts !== null) allData.__accounts__ = _cloudAccts;
     await sb.from("app_state").upsert({id:1, data:allData, updated_at:new Date().toISOString()});
     localStorage.setItem("_cloud_state","synced");
     console.log("☁️ 已同步「"+user+"」到云端");
@@ -1310,7 +1366,7 @@ async function loadFromCloud(){
   console.log("☁️ loadFromCloud: 正在为「"+user+"」加载云端数据...");
   const cloud = await fetchFromCloudRaw();
   if(!cloud){ console.log("☁️ loadFromCloud: 云端无数据"); return false; }
-  console.log("☁️ loadFromCloud: 云端已有用户: "+Object.keys(cloud).join(", "));
+  console.log("☁️ loadFromCloud: 云端已有用户: "+Object.keys(cloud).filter(k=>k!=="__accounts__").join(", "));
   if(!cloud[user]){ console.log("☁️ loadFromCloud: 云端没有「"+user+"」的数据"); return false; }
   const ud = cloud[user];
 
@@ -3267,7 +3323,11 @@ function deleteTier(tid){
 function escHtml(s){ return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
 
 document.addEventListener("DOMContentLoaded",()=>{
-  console.log("%c课程记录 v20260808b (forceUnlocked fix)", "color:#0F6E56;font-weight:bold");
+  console.log("%c课程记录 v20260926a (账号上云·异地登录修复)", "color:#0F6E56;font-weight:bold");
+  // 登录界面也要能访问云端账号，所以启动时先初始化 Supabase
+  initSupabase();
+  // 异步：把本机已有账号上传云端 + 缓存云端账号到本机（换设备可登录）
+  migrateAccountsToCloud();
   document.getElementById("new-name").addEventListener("keydown",e=>{ if(e.key==="Enter") addStu(); });
   document.getElementById("ey").addEventListener("change",updateExpInfo);
   document.getElementById("em").addEventListener("change",updateExpInfo);
