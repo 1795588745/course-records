@@ -2422,47 +2422,52 @@ function calcCumulativeTax(cumTaxable){
 }
 
 /* 计算某月个税（累计预扣法）。
-   如果 hist 中某月有 tax 字段（手动覆盖），则使用该值作为实际已扣税额；
-   否则按公式计算。当前月始终按公式计算。 */
-function calcMonthTax(yr, mo, effThreshold, hist){
-  let cumGross=0, months=0;
-  let actualCumTax=0; // 实际累计已扣税额（手动优先，否则公式）
+   规则（2026-09-26 修正）：
+   1) 当前真实月份若历史里没有 gross，用实时课时费 gross 补入累计；
+   2) 本月个税 = 累计预扣公式增量（截至当月累计税 − 截至上月累计税），
+      纯公式、不再与前期手填值相减，保证非负；
+   3) 历史月份与手填 tax 一律不动，仅无手填的月份（如7月）走公式更正值；
+   4) prevCumTax（"累计已扣"）仅用于展示，显示前几个月真实手填税额合计。
+   opts: {curYr, curMo, curGross} 仅当前真实月份需要时传入。 */
+function calcMonthTax(yr, mo, effThreshold, hist, opts){
+  opts = opts || {};
+  const realYr = opts.curYr, realMo = opts.curMo, realGross = opts.curGross;
 
+  // 累计税前收入（截至第 mo 月，含当月实时 gross）
+  let cumGross=0, months=0;
   for(let m=1; m<=mo; m++){
     const key=yr+"-"+(m<10?"0":"")+m;
-    const rec=hist[key];
-    if(rec && rec.gross!=null){
-      cumGross+=rec.gross; months++;
+    let rec=hist[key];
+    if(!rec && realYr===yr && realMo===m && realGross!=null){
+      rec={gross:realGross}; // 当前真实月份历史里没有 -> 用实时 gross 补入
     }
-    const cumTaxable=Math.max(0, cumGross - months*effThreshold);
-    const cumTax=Math.round(calcCumulativeTax(cumTaxable)*100)/100;
-
-    if(m < mo){
-      // 前序月份：有手动 tax 就用，否则按公式算
-      if(rec && rec.tax != null){
-        actualCumTax = Math.round((actualCumTax + rec.tax)*100)/100;
-      } else {
-        const monthTax = Math.round((cumTax - actualCumTax)*100)/100;
-        actualCumTax = Math.round((actualCumTax + monthTax)*100)/100;
-      }
-    }
+    if(rec && rec.gross!=null){ cumGross+=rec.gross; months++; }
   }
+  const cumTaxable = Math.max(0, cumGross - months*effThreshold);
+  const cumTax = Math.round(calcCumulativeTax(cumTaxable)*100)/100;
 
-  // 当前月累计税额（公式计算）
-  const curCumTaxable = Math.max(0, cumGross - months*effThreshold);
-  const curCumTax = Math.round(calcCumulativeTax(curCumTaxable)*100)/100;
-  const curTax = Math.round((curCumTax - actualCumTax)*100)/100;
-
-  // 前序月份统计（用于显示）
-  let prevCumGross=0, prevMonths=0;
+  // 截至上月累计（纯公式）
+  let prevGross=0, prevMonths=0;
   for(let m=1; m<mo; m++){
     const key=yr+"-"+(m<10?"0":"")+m;
     const rec=hist[key];
-    if(rec && rec.gross!=null){ prevCumGross+=rec.gross; prevMonths++; }
+    if(rec && rec.gross!=null){ prevGross+=rec.gross; prevMonths++; }
   }
-  const prevCumTaxable=Math.max(0, prevCumGross - prevMonths*effThreshold);
+  const prevCumTaxable = Math.max(0, prevGross - prevMonths*effThreshold);
+  const prevCumTaxFormula = Math.round(calcCumulativeTax(prevCumTaxable)*100)/100;
 
-  return {curTax, cumTax: curCumTax, prevCumTax: actualCumTax, cumTaxable: curCumTaxable, prevCumTaxable, months, prevMonths};
+  // 本月个税 = 公式增量，保证非负
+  const curTax = Math.round((cumTax - prevCumTaxFormula)*100)/100;
+
+  // 累计已扣：前几个月真实手填税额合计（仅展示用）
+  let prevHandTax=0;
+  for(let m=1; m<mo; m++){
+    const key=yr+"-"+(m<10?"0":"")+m;
+    const rec=hist[key];
+    if(rec && rec.tax!=null) prevHandTax = Math.round((prevHandTax+rec.tax)*100)/100;
+  }
+
+  return {curTax, cumTax, prevCumTax: prevHandTax, cumTaxable, prevCumTaxable, months, prevMonths};
 }
 
 function recalcSalary(feeOverride){
@@ -2478,7 +2483,7 @@ function recalcSalary(feeOverride){
   const gross=base+tf-deduct-insurance;
 
   const hist=getSalaryHistory();
-  const tr=calcMonthTax(curYr,curMo,effThreshold,hist);
+  const tr=calcMonthTax(curYr,curMo,effThreshold,hist,{curYr,curMo,curGross:gross});
   const curTax=tr.curTax;
   const net=gross-curTax;
 
