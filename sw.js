@@ -1,5 +1,5 @@
 // Service Worker for 课程记录 PWA
-const CACHE_NAME = 'kecheng-v3';
+const CACHE_NAME = 'kecheng-v4';
 const OFFLINE_FILES = [
   '/course-records/',
   '/course-records/index.html',
