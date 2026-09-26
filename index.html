@@ -613,6 +613,7 @@ body{font-family:"PingFang SC","Microsoft YaHei",sans-serif;background:#f5f4f0;c
       <div class="sp-result-item"><div class="sp-label">课时费收入（当月）</div><div class="sp-val" style="color:#534AB7" id="sp-fee">¥0</div><div class="sp-detail" id="sp-fee-detail"></div></div>
       <div class="sp-result-item"><div class="sp-label">税前工资</div><div class="sp-val sp-gross" id="sp-gross">¥0</div><div class="sp-detail" id="sp-gross-detail"></div></div>
       <div class="sp-result-item"><div class="sp-label">本月个税</div><div class="sp-val sp-tax" id="sp-tax">¥0</div><div class="sp-detail" id="sp-tax-detail"></div></div>
+      <div class="sp-result-item"><div class="sp-label">交通费报销</div><div class="sp-val" style="color:#B5741A" id="sp-transport">¥0</div></div>
       <div class="sp-result-item"><div class="sp-label">税后实发</div><div class="sp-val sp-net" id="sp-net">¥0</div><div class="sp-detail" id="sp-net-detail"></div></div>
     </div>
     <div class="sp-history"><div class="sp-history-title"><span>本年工资记录</span><button class="btn-hist-add" onclick="openSalaryEdit(null)">+ 手动添加</button></div><div id="sp-hist-box"><div class="sp-hist-empty">暂无历史记录</div></div></div>
@@ -765,10 +766,12 @@ body{font-family:"PingFang SC","Microsoft YaHei",sans-serif;background:#f5f4f0;c
       <div class="frow full"><div class="fg"><label>税前工资（元）</label><input type="number" id="sh-gross" placeholder="如 8500" step="0.01"></div></div>
       <div class="frow full"><div class="fg"><label>课时费（元，可选）</label><input type="number" id="sh-fee" placeholder="留空表示未记录" step="0.01"></div></div>
       <div class="frow full"><div class="fg"><label>个税（元，留空则自动计算）</label><input type="number" id="sh-tax" placeholder="留空则自动计算" step="0.01"></div></div>
+      <div class="frow full"><div class="fg"><label>交通费报销（元，不计税）</label><input type="number" id="sh-transport" placeholder="留空或0表示无" step="0.01"></div></div>
       <div style="font-size:11px;color:#888;margin-top:-4px;line-height:1.6">
         个税默认由系统按累计预扣法自动计算。如与实际工资条不符，可在此手动填写，系统将以此值为准。<br>
         手动填写的个税会标注"(手动)"，且影响后续月份的累计计算。<br>
-        课时费仅作参考展示，不影响累计个税的计算逻辑。
+        课时费仅作参考展示，不影响累计个税的计算逻辑。<br>
+        交通费报销为不计税款项，仅加到"税后实发"，留空或0表示无。
       </div>
     </div>
     <div class="mfoot">
@@ -2485,7 +2488,11 @@ function recalcSalary(feeOverride){
   const hist=getSalaryHistory();
   const tr=calcMonthTax(curYr,curMo,effThreshold,hist,{curYr,curMo,curGross:gross});
   const curTax=tr.curTax;
-  const net=gross-curTax;
+  // 当前月交通费报销（不计税），历史无记录则默认0
+  const curKey=curYr+"-"+(curMo<10?"0":"")+curMo;
+  const curRec=hist[curKey];
+  const transport=(curRec && curRec.transport!=null)?curRec.transport:0;
+  const net=gross-curTax+transport;
 
   document.getElementById("sp-fee").textContent="¥"+tf;
   document.getElementById("sp-fee-detail").textContent="¥"+base+" + ¥"+tf+" - ¥"+deduct+" - ¥"+insurance;
@@ -2493,8 +2500,9 @@ function recalcSalary(feeOverride){
   document.getElementById("sp-gross-detail").textContent="免征额¥"+effThreshold+" 累计应纳税¥"+tr.cumTaxable.toFixed(2);
   document.getElementById("sp-tax").textContent="¥"+curTax.toFixed(2);
   document.getElementById("sp-tax-detail").textContent="税率档 "+getTaxBracket(tr.cumTaxable);
+  document.getElementById("sp-transport").textContent="¥"+transport.toFixed(2);
   document.getElementById("sp-net").textContent="¥"+net.toFixed(2);
-  document.getElementById("sp-net-detail").textContent="累计已扣 ¥"+tr.prevCumTax.toFixed(2);
+  document.getElementById("sp-net-detail").textContent="累计已扣 ¥"+tr.prevCumTax.toFixed(2)+(transport?" 报销+¥"+transport.toFixed(2):"");
   renderSalaryHistory(hist,curYr,curMo,effThreshold);
 }
 function calcSalary(feeOverride){ recalcSalary(feeOverride); }
@@ -2514,19 +2522,22 @@ function renderSalaryHistory(hist,curYr,curMo,effThreshold){
   const box=document.getElementById("sp-hist-box");
   const entries=Object.keys(hist).sort().reverse();
   if(!entries.length){box.innerHTML='<div class="sp-hist-empty">暂无历史记录，可点击右上角"+ 手动添加"录入</div>';return;}
-  let html='<table class="sp-hist-table"><thead><tr><th>月份</th><th>课时费</th><th>税前</th><th>个税</th><th>税后实发</th><th></th></tr></thead><tbody>';
+  let html='<table class="sp-hist-table"><thead><tr><th>月份</th><th>课时费</th><th>税前</th><th>个税</th><th>交通费</th><th>税后实发</th><th></th></tr></thead><tbody>';
   entries.forEach(key=>{
     const r=hist[key]; const isCur=key===(curYr+"-"+(curMo<10?"0":"")+curMo);
     const yr=parseInt(key.split("-")[0]), mo=parseInt(key.split("-")[1]);
     const tr=calcMonthTax(yr,mo,effThreshold,hist);
     // 有手动 tax 就显示手动值，否则显示公式计算值
     const tax = r.tax != null ? r.tax : tr.curTax;
-    const net=((r.gross||0)-tax).toFixed(2);
+    const trans = r.transport!=null?r.transport:0;
+    const net=((r.gross||0)-tax+trans).toFixed(2);
     const feeDisp=r.fee!=null?'¥'+r.fee:'—';
     const taxBadge = r.tax != null ? ' <span style="font-size:10px;color:#aaa">(手动)</span>' : '';
+    const transBadge = trans? '' : ' <span style="font-size:10px;color:#bbb">(0)</span>';
     html+=`<tr${isCur?' style="background:#EEEDFE"':''}>
       <td>${key}</td><td>${feeDisp}</td><td>¥${r.gross||0}</td>
       <td class="td-tax">¥${tax.toFixed(2)}${taxBadge}</td>
+      <td class="td-trans">¥${trans.toFixed(2)}${transBadge}</td>
       <td class="td-net">¥${net}</td>
       <td class="td-ops">
         <button class="btn-edit-sm" onclick="openSalaryEdit('${key}')">编辑</button>
@@ -2555,6 +2566,7 @@ function openSalaryEdit(key){
   document.getElementById("sh-gross").value=r?r.gross:"";
   document.getElementById("sh-fee").value=r?(r.fee!=null?r.fee:""):"";
   document.getElementById("sh-tax").value=r?(r.tax!=null?r.tax:""):"";
+  document.getElementById("sh-transport").value=r?(r.transport!=null?r.transport:""):"";
   document.getElementById("sh-modal-title").textContent=key?"编辑工资记录":"手动添加工资记录";
   document.getElementById("sh-modal").classList.add("open");
   setTimeout(()=>document.getElementById("sh-month").focus(),80);
@@ -2569,6 +2581,7 @@ function saveSalaryEdit(){
   const feeRaw=document.getElementById("sh-fee").value.trim();
   const fee=feeRaw===""?null:parseFloat(feeRaw);
   const taxRaw=document.getElementById("sh-tax").value.trim();
+  const transportRaw=document.getElementById("sh-transport").value.trim();
   if(!month||!/^\d{4}-\d{2}$/.test(month)){alert("请输入正确的月份格式，如 2026-01");return;}
   if(isNaN(gross)){alert("请输入税前工资");return;}
   const hist=getSalaryHistory();
@@ -2581,6 +2594,14 @@ function saveSalaryEdit(){
   } else if(existing.tax != null){
     record.tax = existing.tax;
   }
+  // 交通费报销：不计税，默认0；手动输入则保存，否则保留已有值
+  let transport = 0;
+  if(transportRaw !== ""){
+    transport = round2(Math.max(0, parseFloat(transportRaw)));
+  } else if(existing.transport != null){
+    transport = existing.transport;
+  }
+  record.transport = transport;
   hist[month] = record;
   saveSalaryHistory(hist);
   closeSalaryEdit();
